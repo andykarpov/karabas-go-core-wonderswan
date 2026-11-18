@@ -2,7 +2,9 @@
 
 Bandai WonderSwan and WonderSwan Color for the Karabas Go board family (Xilinx Spartan-6 XC6SLX25). A port of the [MiSTer WonderSwan core](https://github.com/MiSTer-devel/WonderSwan_MiSTer) by Robert Peip, with parts of [Open Pocket WS](https://github.com/LakoMoor/open-pocket-ws) by LakoMoor (compact sprite unit, open boot stub, and the CPU: the [s80x86](https://github.com/jamieiles/80x86)-based V30MZ; the MiSTer V30MZ is kept as an option, it does not fit the board with HDMI audio).
 
-Status: work in progress, nothing to run yet. The plan is in `docs/PLAN.md` (Russian).
+Status: work in progress, runs on Mini G (games from the SD card, HDMI with sound, saves). The plan is in `docs/PLAN.md` (Russian).
+
+Saves: the SRAM (8 KB to 512 KB) or the EEPROM of a cartridge is kept in `<game dir>/saves/<game>.sav` on the SD card (a raw dump, as MiSTer and the emulators keep it), written a second after the game changes it. The cartridge clock (RTC) starts with the time of the board clock; a time set in a game is not kept. The internal EEPROM of the console (owner name, settings) is not saved.
 
 The Bandai boot ROMs are not needed: an open boot stub starts the cartridge (no boot logo and no owner-name screen). Game images are not included.
 
