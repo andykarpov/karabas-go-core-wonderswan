@@ -1,0 +1,13 @@
+xst/
+*.ngc
+*.ngr
+*.nlf
+*.syr
+*.xrpt
+*.log
+ws_core_post.v
+ws_core_taps.v
+tb_post
+tb_ghdl
+trace_*.txt
+_xmsgs/

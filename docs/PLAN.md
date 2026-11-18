@@ -20,7 +20,7 @@
 
 - Гибрид: основа MiSTer master, из open-pocket-ws компактные спрайты и загрузчик; процессор выбираем по замеру XST на Ф0 (V30MZ MiSTer или s80x86).
 - Загрузка: открытый stub в `.kg`, IPL Bandai не нужен (нет логотипа и экрана имени владельца).
-- Процессор (после замера Ф0): V30MZ MiSTer, s80x86 — запасной.
+- Процессор (после замера Ф0): V30MZ MiSTer, s80x86 — запасной. **Ф1 (2026-11-18): на s80x86** — с V30MZ и звуком HDMI Mini G занята на 98 % slices и не разводится; V30MZ остаётся за `KG_CPU_S80=0`.
 - Имя ядра `wonderswan`, репозиторий karabas-go-core-wonderswan, пока приватный.
 
 ## Плата (XC6SLX25)
@@ -42,6 +42,13 @@
 ### Ф1 — Mini G, первый запуск
 
 Верх платы на kg_* из karabas-go-modules (kg_mcu2: загрузка ROM в SDRAM через file loader, OSD, клавиатура / геймпады), SDRAM (sdram.sv MiSTer через sv2v или модуль modules), кадровый буфер в SRAM на 60 Гц, HDMI со звуком, загрузчик-stub. Цель: тестовые ROM MiSTer (`upstream/mister/testroms`) и homebrew SwanSong Originals на плате.
+
+- [x] Верх `karabas_minig_top.v`: kg_mcu2 (file loader, OSD, клавиатура / геймпады), `ws_clocks` (DCM_CLKGEN 50·14/19 → PLL: clk_sys 36,84 / clk_ram 110,5 МГц; видео 65 / 325 МГц), `ws_sdram` (sdram.sv MiSTer вручную в Verilog-2001), `ws_loader`, `ws_fb` (3 буфера в SRAM, 1024×768 @ 60, ×4), `ws_kbd`, HDMI со звуком 48 кГц (+ DAC).
+- [x] Быстрые проверки `src/sim/run_checks.sh` (~1 мин): tb_fb + timingtest через открытый загрузчик (s80x86 по умолчанию, `S80=0` — V30MZ); `sim/post` — XST + netgen + iverilog против ghdl.
+- [x] XST: `fsm_extract no` на `opcodeNext` cpu.vhd (V30MZ висел на 2-й команде на плате, найдено post-synth симуляцией).
+- [x] Процессор s80x86 на плате (`rtl/s80v` из sv2v); `ws_sdram` ch3: ready растянут на 3 такта clk_ram, запрос защёлкивается по фронту (иначе чтение во время занятости становилось записью мусора в ROM). timingtest: все 16 тестов, итоговая таблица попиксельно как у V30MZ.
+- [x] Тайминг: `hdmi_tx` OUTPUT_REG, регистр геометрии в `kg_l2_osd_overlay` (modules `fix/osd-geom-reg`).
+- [x] Плата (26111824/25): One Last Lap и другие SwanSong, управление, звук HDMI (Mote Sound Terminal — гамма, снято с аудиовхода захвата). 9,2k LUT (61 %), 79 % slices, 42 RAMB16, тайминг сходится, PAR ~1,5 мин.
 
 ### Ф2 — сохранения
 
