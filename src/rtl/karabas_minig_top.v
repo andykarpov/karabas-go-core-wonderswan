@@ -184,7 +184,7 @@ wire [31:0] ld_addr;
 wire ld_active, ld_wr;
 wire dvi_only;
 wire ft_cs_n, ft_mosi, ft_spi_on, sd2_cs_n, sd2_mosi;
-wire [2*8-1:0] sw;
+wire [4*8-1:0] sw;
 wire osd_wr, osd_en, osd_zoom;
 wire [11:0] osd_waddr;
 wire [7:0] osd_wdata;
@@ -206,7 +206,7 @@ wire [7:0] rtc_a, rtc_do;
 
 kg_mcu2 #(
 	.CAPS(16'h0002),     // backup RAM: the firmware flushes the .sav before a new game
-	.SW_N(2),
+	.SW_N(4),
 	.CS_FILTER(3),
 	.ENABLE_OSD(1),
 	.ENABLE_IMG(1),      // the .sav file of kg_bk_ram
@@ -273,7 +273,9 @@ assign SD_CLK = mcu_sck_ibufg;
 // ------------------------------------------------------------------ soft switches (the SW registers of kg_mcu2)
 
 wire [1:0] sw_system = sw[0*8 +: 2];   // 0 Auto, 1 Color, 2 Mono
-wire sw_reset = sw[1*8];
+wire [1:0] sw_orient = sw[1*8 +: 2]; // 0 Auto, 1 Horz, 2 Vert, 3 Vert180
+wire [1:0] sw_blend = sw[2*8 +: 2];  // 0 Off, 1 2 frames, 2 3 frames
+wire sw_reset = sw[3*8];
 
 // ------------------------------------------------------------------ cartridge
 
@@ -571,8 +573,15 @@ ODDR2 oddr_sdr_clk (.Q(SDR_CLK), .C0(clk_sdr), .C1(~clk_sdr), .CE(1'b1), .D0(1'b
 
 wire [23:0] vid_rgb;
 wire vid_hs, vid_vs, vid_de;
+// the picture turned: Auto = Vert180 when the game says vertical (as the MiSTer top)
+reg [1:0] fb_rot = 2'd0;
+always @(posedge clk_sys)
+	fb_rot <= sw_orient == 2'd0 ? (vertical ? 2'd2 : 2'd0) : sw_orient - 2'd1;
+
 ws_fb fb (
 	.clk(clk_sys),
+	.rot(fb_rot),
+	.blend(sw_blend),
 	.pixel_we(pixel_we),
 	.pixel_addr(pixel_addr),
 	.pixel_data(pixel_data),
