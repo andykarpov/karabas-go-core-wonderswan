@@ -252,11 +252,6 @@ TIMESPEC "TS_65_TO_SYS" = FROM "TG_CLK_65" TO "TG_CLK_SYS" TIG;
 TIMESPEC "TS_RAM_TO_65" = FROM "TG_CLK_RAM" TO "TG_CLK_65" TIG;
 TIMESPEC "TS_65_TO_RAM" = FROM "TG_CLK_65" TO "TG_CLK_RAM" TIG;
 
-# the reset of the video group (kg_sync in clk_65, fanout ~140) goes into the 325 MHz serialiser of hdmi_tx: it
-# changes once, long after the PLLs locked (26111820 first PAR: -0.13 ns on these paths only)
-INST "sync_rst65/s_2" TNM = "TG_RST65";
-TIMESPEC "TS_RST65" = FROM "TG_RST65" TIG;
-
 NET "MCU_SCK" TNM_NET = "TG_CLK_MCU";
 TIMESPEC "TS_CLK_MCU" = PERIOD "TG_CLK_MCU" 32 MHz;
 TIMESPEC "TS_MCU_TO_SYS" = FROM "TG_CLK_MCU" TO "TG_CLK_SYS" 25 ns DATAPATHONLY;

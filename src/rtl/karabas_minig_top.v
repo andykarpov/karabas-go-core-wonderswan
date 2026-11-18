@@ -148,9 +148,8 @@ ws_clocks clocks (
 	.locked_vid(locked_vid)
 );
 wire areset_async = ~(locked_sys & locked_vid);
-wire areset, areset_65;
+wire areset;
 kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_rst (.clk(clk_sys), .d(areset_async), .q(areset));
-kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_rst65 (.clk(clk_65), .d(areset_async), .q(areset_65));
 
 // the clock of the FT812 (it must always have one): 65 / 8 = 8.125 MHz
 reg [1:0] ft_div = 2'd0;
@@ -486,7 +485,10 @@ hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1)) hdmi (
 	.clk(clk_65),
 	.sclk(clk_ser),
 	.sclk_n(clk_ser_n),
-	.reset(areset_65),
+	// the reset straight from the PLLs, as core-sega: 26111820 had it through a kg_sync in clk_65 (fanout
+	// ~140 into the 325 MHz serialisers, -0.13 ns) and gave no picture on the board: the mod5 counters of
+	// the channels must leave the reset at the same serial clock
+	.reset(areset_async),
 	.rgb(osd_rgb),
 	.vsync(~osd_vs),     // 1024 x 768 at 60 Hz: negative syncs (VESA)
 	.hsync(~osd_hs),
