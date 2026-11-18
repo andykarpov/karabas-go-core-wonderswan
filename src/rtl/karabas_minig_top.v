@@ -536,7 +536,13 @@ wire dvi_only_65, sys_bad;
 kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_sysbad (.clk(clk_65), .d(~locked_sys), .q(sys_bad));
 kg_sync #(.W(1), .STAGES(3)) sync_dvi (.clk(clk_65), .d(dvi_only), .q(dvi_only_65));
 
-hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1)) hdmi (
+// HDMI_AUDIO 0 (Ф1 bring-up, temporary): DVI only, the audio of HDMI (signaler: island encoder,
+// packetizer, its TMDS encoders, ~600 slices) trimmed; at 98 % slices PAR could not route the core
+// (26111824). The audio stays on the DAC. Back to 1 once the diagnostics are out and it fits.
+localparam HDMI_AUDIO = 1;
+// OUTPUT_REG: a register in front of each serializer (26111824 without it: the encoders far from the
+// serializers at 96 % slices, clk_65 -> clk_ser -2.9 ns, PAR never met it)
+hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1), .OUTPUT_REG(1)) hdmi (
 	.clk(clk_65),
 	.sclk(clk_ser),
 	.sclk_n(clk_ser_n),
@@ -547,7 +553,7 @@ hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1)) hdmi (
 	.vsync(~osd_vs),     // 1024 x 768 at 60 Hz: negative syncs (VESA)
 	.hsync(~osd_hs),
 	.de(osd_de),
-	.audio_en(~dvi_only_65),
+	.audio_en(HDMI_AUDIO ? ~dvi_only_65 : 1'b0),
 	.audio_l(hdmi_l),
 	.audio_r(hdmi_r),
 	.audio_clk(aud_stb),
