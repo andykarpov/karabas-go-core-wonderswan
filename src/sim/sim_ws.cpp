@@ -112,6 +112,7 @@ int main(int argc, char **argv) {
 	std::string why;
 	const uint64_t limit = (uint64_t)(frames + 4) * 600000;
 	int prev_rd = 0, n_rd = 0, pend = 0;
+	int snd_max = 0;   // the largest |snd_l| / |snd_r| of the frame (signed 16 bits)
 	unsigned pend_a = 0;
 	while (frame < frames && cycles < limit) {
 		sys_cycle([&] {
@@ -119,6 +120,8 @@ int main(int argc, char **argv) {
 			if (pend && --pend == 0 && n_rd <= trace) printf("  ext read %06x -> %04x\n", pend_a, (unsigned)top->ext_rdata);
 			if (top->ext_read && !prev_rd) { n_rd++; if (n_rd <= trace) { pend_a = top->ext_addr; pend = 3; } }
 			prev_rd = top->ext_read;
+			{ int l = (int16_t)top->snd_l, r = (int16_t)top->snd_r; if (l < 0) l = -l; if (r < 0) r = -r;
+			  if (l > snd_max) snd_max = l; if (r > snd_max) snd_max = r; }
 			for (auto &k : key_at) if (frame >= k.f) top->keys = k.keys;
 			if (top->pixel_we) {
 				unsigned a = top->pixel_addr;
@@ -127,8 +130,9 @@ int main(int argc, char **argv) {
 					uint32_t sum = 0;
 					int lit = 0;
 					for (size_t i = 0; i < fb.size(); i++) { sum = sum * 31 + fb[i]; if (fb[i]) lit++; }
-					printf("frame %d: %llu clocks, sum %08x, %d pixels not black, vertical %d, %d cartridge reads\n", frame,
-					       (unsigned long long)(cycles - frame_start), sum, lit, (int)top->vertical, n_rd);
+					printf("frame %d: %llu clocks, sum %08x, %d pixels not black, vertical %d, %d cartridge reads, sound max %d\n", frame,
+					       (unsigned long long)(cycles - frame_start), sum, lit, (int)top->vertical, n_rd, snd_max);
+					snd_max = 0;
 					for (auto &e : exp_sum)
 						if (e.f == frame && e.sum != sum) { fail = true; char b[80]; snprintf(b, sizeof b, "frame %d sum %08x != %08x; ", frame, sum, e.sum); why += b; }
 					if (!ppm.empty() && frame % ppm_every == 0) {
