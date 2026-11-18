@@ -4,6 +4,7 @@
 -- the open-pocket-ws parts, the MiSTer V30MZ with KG_CPU_S80 = 0) with only the ports the board uses
 -- and plain vectors for the Verilog top (pixel_out_addr is an integer in SwanTop). Savestates,
 -- rewind, the serial link and the RTC are tied off (Ф1); after open-pocket-ws ws_core.vhd.
+-- Ф2: the port of the cartridge EEPROM (eeprom_*, clk_ram) for the .sav file (ws_bk.v).
 
 library IEEE;
 use IEEE.std_logic_1164.all;
@@ -29,6 +30,13 @@ entity ws_core is
       EXTRAM_datawrite   : out std_logic_vector(15 downto 0);
       EXTRAM_dataread    : in  std_logic_vector(15 downto 0);
       EXTRAM_ready       : in  std_logic;
+
+      eepromWrite        : out std_logic;
+      eeprom_addr        : in  std_logic_vector(9 downto 0);
+      eeprom_din         : in  std_logic_vector(15 downto 0);
+      eeprom_dout        : out std_logic_vector(15 downto 0);
+      eeprom_req         : in  std_logic;
+      eeprom_rnw         : in  std_logic;
 
       maskAddr           : in  std_logic_vector(23 downto 0);
       romtype            : in  std_logic_vector(7 downto 0);
@@ -75,12 +83,12 @@ begin
       EXTRAM_dataread    => EXTRAM_dataread,
       EXTRAM_ready       => EXTRAM_ready,
 
-      eepromWrite        => open,
-      eeprom_addr        => (others => '0'),
-      eeprom_din         => (others => '0'),
-      eeprom_dout        => open,
-      eeprom_req         => '0',
-      eeprom_rnw         => '1',
+      eepromWrite        => eepromWrite,
+      eeprom_addr        => eeprom_addr,
+      eeprom_din         => eeprom_din,
+      eeprom_dout        => eeprom_dout,
+      eeprom_req         => eeprom_req,
+      eeprom_rnw         => eeprom_rnw,
 
       maskAddr           => maskAddr,
       romtype            => romtype,

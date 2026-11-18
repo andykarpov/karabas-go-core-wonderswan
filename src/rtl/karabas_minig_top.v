@@ -194,12 +194,21 @@ wire [4:0] osd_px, osd_ph;
 wire [3:0] osd_py;
 wire [5:0] osd_pw;
 
+// the .sav file of kg_bk_ram (slot 0) on the mounter of kg_mcu2
+wire [7:0] img_flush, sdc_img_mounted, sdc_rd, sdc_wr, sdc_byte_in_data, sdc_byte_out_data, bk_kind, bk_result;
+wire [63:0] sdc_img_size;
+wire [31:0] sdc_sector, bk_size;
+wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe, bk_mount, bk_flushed;
+wire [2:0] sdc_slot;
+wire [8:0] sdc_byte_addr;
+
 kg_mcu2 #(
-	.CAPS(16'h0000),
+	.CAPS(16'h0002),     // backup RAM: the firmware flushes the .sav before a new game
 	.SW_N(2),
 	.CS_FILTER(3),
 	.ENABLE_OSD(1),
-	.ENABLE_IMG(0),
+	.ENABLE_IMG(1),      // the .sav file of kg_bk_ram
+	.IMG_OUT_LATENCY(2), // the sector buffer of kg_bk_ram
 	.ENABLE_AUX(0),
 	.ENABLE_FT(1),
 	.ENABLE_SD2(1)
@@ -230,15 +239,15 @@ kg_mcu2 #(
 	.OSD_FG(osd_fg), .OSD_BG(osd_bg), .OSD_ALPHA(osd_alpha), .OSD_PX(osd_px), .OSD_PY(osd_py),
 	.OSD_PW(osd_pw), .OSD_PH(osd_ph), .OSD_PLACE(osd_place), .OSD_ZOOM(osd_zoom),
 
-	.SDC_IMG_MOUNTED(), .SDC_IMG_SIZE(),
-	.SDC_RD(8'd0), .SDC_WR(8'd0), .SDC_SECTOR(32'd0),
-	.SDC_BUSY(), .SDC_DONE(), .SDC_ERROR(), .SDC_SLOT(),
-	.SDC_BYTE_IN_STROBE(), .SDC_BYTE_ADDR(),
-	.SDC_BYTE_IN_DATA(), .SDC_BYTE_OUT_DATA(8'd0),
-	.IMG_WP(), .IMG_PHYS_WR(), .IMG_PHYS(), .IMG_FLUSH(), .FDD_CHNG_WR(), .FDD_CHNG(),
+	.SDC_IMG_MOUNTED(sdc_img_mounted), .SDC_IMG_SIZE(sdc_img_size),
+	.SDC_RD(sdc_rd), .SDC_WR(sdc_wr), .SDC_SECTOR(sdc_sector),
+	.SDC_BUSY(sdc_busy), .SDC_DONE(sdc_done), .SDC_ERROR(sdc_error), .SDC_SLOT(sdc_slot),
+	.SDC_BYTE_IN_STROBE(sdc_byte_in_strobe), .SDC_BYTE_ADDR(sdc_byte_addr),
+	.SDC_BYTE_IN_DATA(sdc_byte_in_data), .SDC_BYTE_OUT_DATA(sdc_byte_out_data),
+	.IMG_WP(), .IMG_PHYS_WR(), .IMG_PHYS(), .IMG_FLUSH(img_flush), .FDD_CHNG_WR(), .FDD_CHNG(),
 	.FDD_CHNG_REQ(1'b0), .FDD_CHNG_DS(2'd0),
-	.BK_MOUNT(), .BK_FLUSHED(), .BK_SLOT(3'd0), .BK_SIZE(32'd0),
-	.BK_KIND(8'd0), .BK_RESULT(),
+	.BK_MOUNT(bk_mount), .BK_FLUSHED(bk_flushed), .BK_SLOT(3'd0), .BK_SIZE(bk_size),
+	.BK_KIND(bk_kind), .BK_RESULT(bk_result),
 	.IMG_ACTIVE(),
 
 	.PORT_OUT_DATA(), .PORT_OUT_WR(), .PORT_OUT_READY(4'b1111), .PORT_IN_DATA(32'd0), .PORT_IN_WR(4'd0),
@@ -296,11 +305,119 @@ reg is_color = 1'b1;
 always @(posedge clk_sys)
 	is_color <= sw_system == 2'd0 ? hdr_color : sw_system == 2'd1;
 
-// reset: the PLLs, the Reset item, while a cartridge loads, until the first one is in
+// ------------------------------------------------------------------ save memory (.sav)
+
+// kg_bk_ram on img slot 0: started when a cartridge is in (loading falls) with the size of its
+// save memory (header byte -5: SRAM 01..05 = 8 / 32 / 128 / 256 / 512 KB in the SDRAM, EEPROM
+// 10 / 50 / 20 = 128 B / 1 KB / 2 KB, as one sector at least); the CPU is held in reset until the
+// file is in. A new file resets it (the firmware flushes the old one before it loads another game).
+// SRAM writes of the CPU mark their sector; an EEPROM write (eepromWrite, no address) marks all its
+// sectors (at most 4). Over 64 sectors kg_bk_ram saves blocks (512 KB: 8 KB).
+reg [10:0] sav_sectors = 11'd0;
+reg sav_sram = 1'b1;
+always @(posedge clk_sys) begin
+	sav_sram <= ramtype[7:4] == 4'd0;
+	case (ramtype)
+		8'h01: sav_sectors <= 11'd16;
+		8'h02: sav_sectors <= 11'd64;
+		8'h03: sav_sectors <= 11'd256;
+		8'h04: sav_sectors <= 11'd512;
+		8'h05: sav_sectors <= 11'd1024;
+		8'h10: sav_sectors <= 11'd1;
+		8'h50: sav_sectors <= 11'd2;
+		8'h20: sav_sectors <= 11'd4;
+		default: sav_sectors <= 11'd0;
+	endcase
+end
+
+reg file_active_d = 1'b0, loading_d = 1'b0, bk_reset = 1'b0, bk_start = 1'b0;
+always @(posedge clk_sys) begin
+	file_active_d <= file_active;
+	loading_d <= loading;
+	bk_reset <= file_active && !file_active_d;
+	bk_start <= loading_d && !loading;
+end
+
+wire ext_write, eeprom_written;
+wire [24:0] ext_addr;
+reg sav_wr = 1'b0;
+reg [18:0] sav_a = 19'd0;
+reg [2:0] ee_mark = 3'd0;          // EEPROM sectors still to mark
+always @(posedge clk_sys) begin
+	sav_wr <= 1'b0;
+	if (eeprom_written)
+		ee_mark <= sav_sectors[2:0] == 3'd0 ? 3'd4 : sav_sectors[2:0];
+	if (sav_sram) begin
+		sav_wr <= ext_write && ext_addr[24];
+		sav_a <= ext_addr[18:0];
+	end
+	else if (ee_mark != 3'd0) begin
+		sav_wr <= 1'b1;
+		sav_a <= { 7'd0, ee_mark - 3'd1, 9'd0 };
+		ee_mark <= ee_mark - 3'd1;
+	end
+end
+
+wire bk_busy, bk_mem_req, bk_mem_we, bk_mem_ack;
+wire [18:0] bk_mem_addr;
+wire [7:0] bk_mem_din, bk_mem_dout;
+kg_bk_ram #(
+	.SLOT(3'd0),
+	.IDLE_CLOCKS(27'd36864000),    // ~1 s at 36.864 MHz: save after the last write
+	.MAX_CLOCKS(27'd73728000),     // ~2 s: at the latest after the first write
+	.MOUNT_CLOCKS(27'd36864000),   // ~1 s: no answer to the mount, go on without a save
+	.GRACE_CLOCKS(27'd368640),     // ~10 ms: no file
+	.LINK(2),                      // on the mounter of kg_mcu2
+	.SBITS(10)                     // up to 512 KB
+) bk_ram (
+	.clk(clk_sys),
+	.reset(bk_reset),
+	.start(bk_start),
+	.size(sav_sectors),
+	.kind(8'h00),
+	.busy(bk_busy),
+	.mounted(),
+	.saving(),
+	.save_error(),
+	.wr(sav_wr),
+	.wr_addr(sav_a),
+	.mem_req(bk_mem_req),
+	.mem_we(bk_mem_we),
+	.mem_addr(bk_mem_addr),
+	.mem_din(bk_mem_din),
+	.mem_ack(bk_mem_ack),
+	.mem_dout(bk_mem_dout),
+	.img_mounted(8'd0), .img_size(64'd0), .img_data_wr(1'b0), .img_data_addr(9'd0), .img_data(8'd0),
+	.img_result_wr(1'b0), .img_result(8'd0), .img_sum(16'd0), .img_flush(img_flush),
+	.img_q_wr(), .img_q_di(), .img_q_ack(1'b0),
+	.sdc_img_mounted_i(sdc_img_mounted), .sdc_img_size_i(sdc_img_size), .sdc_rd_o(sdc_rd),
+	.sdc_wr_o(sdc_wr), .sdc_sector_o(sdc_sector), .sdc_busy_i(sdc_busy), .sdc_done_i(sdc_done),
+	.sdc_error_i(sdc_error), .sdc_slot_i(sdc_slot), .sdc_byte_in_strobe_i(sdc_byte_in_strobe),
+	.sdc_byte_addr_i(sdc_byte_addr), .sdc_byte_in_data_i(sdc_byte_in_data),
+	.sdc_byte_out_data_o(sdc_byte_out_data),
+	.bk_mount(bk_mount), .bk_flushed(bk_flushed), .bk_size(bk_size), .bk_kind(bk_kind),
+	.bk_result(bk_result)
+);
+
+wire [25:1] bk_sdr_addr;
+wire [15:0] bk_sdr_din, bk_sdr_dout, ee_din, ee_dout;
+wire bk_sdr_req, bk_sdr_rnw, bk_sdr_ready, ee_req, ee_rnw;
+wire [9:0] ee_addr;
+ws_bk bk (
+	.clk(clk_sys), .clk_ram(clk_ram), .sram(sav_sram),
+	.mem_req(bk_mem_req), .mem_we(bk_mem_we), .mem_addr(bk_mem_addr), .mem_din(bk_mem_din),
+	.mem_ack(bk_mem_ack), .mem_dout(bk_mem_dout),
+	.sdr_addr(bk_sdr_addr), .sdr_din(bk_sdr_din), .sdr_req(bk_sdr_req), .sdr_rnw(bk_sdr_rnw),
+	.sdr_dout(bk_sdr_dout), .sdr_ready(bk_sdr_ready),
+	.ee_addr(ee_addr), .ee_din(ee_din), .ee_req(ee_req), .ee_rnw(ee_rnw), .ee_dout(ee_dout)
+);
+
+// reset: the PLLs, the Reset item, while a cartridge loads, until the first one is in, while the
+// .sav file loads
 reg [7:0] rst_cnt = 8'd0;
 reg ws_reset = 1'b1;
 always @(posedge clk_sys) begin
-	if (areset || sw_reset || loading || !cart_ready)
+	if (areset || sw_reset || loading || !cart_ready || bk_busy)
 		rst_cnt <= 8'd0;
 	else if (rst_cnt != 8'hFF)
 		rst_cnt <= rst_cnt + 8'd1;
@@ -320,9 +437,8 @@ ws_kbd kbd (
 
 // ------------------------------------------------------------------ WonderSwan
 
-wire ext_refresh, ext_read, ext_write;
+wire ext_refresh, ext_read;
 wire [1:0] ext_be;
-wire [24:0] ext_addr;
 wire [15:0] ext_wdata, ext_rdata;
 wire ext_ready;
 wire vertical, pixel_we;
@@ -344,6 +460,13 @@ ws_core #(.KG_CPU_S80(1)) ws (
 	.EXTRAM_datawrite(ext_wdata),
 	.EXTRAM_dataread(ext_rdata),
 	.EXTRAM_ready(ext_ready),
+
+	.eepromWrite(eeprom_written),
+	.eeprom_addr(ee_addr),
+	.eeprom_din(ee_din),
+	.eeprom_dout(ee_dout),
+	.eeprom_req(ee_req),
+	.eeprom_rnw(ee_rnw),
 
 	.maskAddr(mask_addr),
 	.romtype(romtype),
@@ -387,12 +510,12 @@ ws_sdram sdram (
 	.ch1_rnw(1'b0),
 	.ch1_ready(),
 
-	.ch2_addr(25'd0),
-	.ch2_dout(),
-	.ch2_din(16'd0),
-	.ch2_req(1'b0),
-	.ch2_rnw(1'b1),
-	.ch2_ready(),
+	.ch2_addr(bk_sdr_addr),
+	.ch2_dout(bk_sdr_dout),
+	.ch2_din(bk_sdr_din),
+	.ch2_req(bk_sdr_req),
+	.ch2_rnw(bk_sdr_rnw),
+	.ch2_ready(bk_sdr_ready),
 
 	.ch3_addr({ 1'b0, ext_addr[24:1] }),
 	.ch3_dout(ext_rdata),
