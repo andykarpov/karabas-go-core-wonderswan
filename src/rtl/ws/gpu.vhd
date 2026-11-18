@@ -218,7 +218,18 @@ architecture arch of gpu is
    type t_ss_wired_or is array(0 to 2) of std_logic_vector(63 downto 0);
    signal ss_wired_or : t_ss_wired_or;   
 
-begin 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal vertical_i : std_logic := '0';
+   signal pixel_out_addr_i : integer range 0 to 32255;
+   signal pixel_out_we_i : std_logic := '0';
+
+begin
+
+   -- karabas: the out ports from their internal copies
+   vertical <= vertical_i;
+   pixel_out_addr <= pixel_out_addr_i;
+   pixel_out_we <= pixel_out_we_i;
+ 
 
    export_vtime <= LINE_CUR;
 
@@ -309,7 +320,7 @@ begin
    SS_TIMER_BACK(31 downto 16) <= VTMR_CTR; 
    SS_TIMER_BACK(35 downto 32) <= TMR_CTRL; 
    
-   SS_MIXED_BACK(0) <= vertical;
+   SS_MIXED_BACK(0) <= vertical_i;
    
    -- timing
    process (clk)
@@ -437,11 +448,11 @@ begin
    begin
       if rising_edge(clk) then
          if (reset = '1') then
-            vertical <= SS_MIXED(0);
+            vertical_i <= SS_MIXED(0);
          else
             if (LCD_ICON_written = '1') then
-               if (LCD_ICON(1) = '1') then vertical <= '1'; end if;
-               if (LCD_ICON(2) = '1') then vertical <= '0'; end if;
+               if (LCD_ICON(1) = '1') then vertical_i <= '1'; end if;
+               if (LCD_ICON(2) = '1') then vertical_i <= '0'; end if;
             end if;
          end if;
       end if;
@@ -713,19 +724,19 @@ begin
    begin
       if rising_edge(clk) then
       
-         pixel_out_we <= '0';
-         if (pixel_out_we = '1' and pixel_out_addr < 32255) then
-            pixel_out_addr <= pixel_out_addr + 1;
+         pixel_out_we_i <= '0';
+         if (pixel_out_we_i = '1' and pixel_out_addr_i < 32255) then
+            pixel_out_addr_i <= pixel_out_addr_i + 1;
          end if;
       
          if (ce = '1') then
             
             if (startLine = '1' and unsigned(lineY) < 144) then
-               pixel_out_addr <= to_integer(unsigned(lineY)) * 224;
+               pixel_out_addr_i <= to_integer(unsigned(lineY)) * 224;
             end if;
             
             if (unsigned(xCount) >= 20 and unsigned(xCount) < 244 and unsigned(lineY) < 144) then
-               pixel_out_we   <= '1';
+               pixel_out_we_i   <= '1';
             end if;
             
             output_bg0  := '0';           

@@ -42,7 +42,7 @@ begin
 
    iREG_KEYPAD : entity work.eReg generic map ( REG_KEYPAD ) port map (clk, RegBus_Din, RegBus_Adr, RegBus_wren, RegBus_rst, RegBus_Dout, KEYPAD_read, KEYPAD);  
   
-   process (all)
+   process (KEYPAD_read, KEYPAD, vertical, KeyY1, KeyY2, KeyY3, KeyY4, KeyX4, KeyX1, KeyX2, KeyX3, KeyStart, KeyA, KeyB) -- karabas: was process (all), VHDL-93 (XST)
    begin
    
       KEYPAD_read <= '0' & KEYPAD(6 downto 4) & "0000";

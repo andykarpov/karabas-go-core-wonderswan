@@ -99,7 +99,7 @@ begin
    IRQ_SerialSend    <= control_enable and not tx_busy;
    IRQ_SerialReceive <= control_enable and rx_full;
 
-   process (all)
+   process (RegBus_Adr, uart_test, rx_data, control_enable, control_highspeed, tx_busy, rx_overrun, rx_full) -- karabas: was process (all), VHDL-93 (XST)
    begin
       RegBus_Dout <= (others => '0');
 

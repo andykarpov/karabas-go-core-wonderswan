@@ -51,7 +51,14 @@ architecture arch of sound_module2 is
    signal pitchCount   : unsigned(10 downto 0);
    signal nextData     : unsigned(3 downto 0);
 
-begin 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal sampleposReq_i : unsigned(4 downto 0) := (others => '0');
+
+begin
+
+   -- karabas: the out ports from their internal copies
+   sampleposReq <= sampleposReq_i;
+ 
 
    iREG_SND_CH_PITCH_L : entity work.eReg generic map ( REG_SND_CH2_PITCH_L  ) port map (clk, RegBus_Din, RegBus_Adr, RegBus_wren, RegBus_rst, reg_wired_or(0), SND_CH_PITCH( 7 downto 0), SND_CH_PITCH( 7 downto 0));  
    iREG_SND_CH_PITCH_H : entity work.eReg generic map ( REG_SND_CH2_PITCH_H  ) port map (clk, RegBus_Din, RegBus_Adr, RegBus_wren, RegBus_rst, reg_wired_or(1), SND_CH_PITCH(10 downto 8), SND_CH_PITCH(10 downto 8));  
@@ -75,7 +82,7 @@ begin
       
          if (reset = '1') then
       
-            sampleposReq  <= (others => '0');           
+            sampleposReq_i  <= (others => '0');           
             soundoutL     <= (others => '0');
             soundoutR     <= (others => '0');
             sampleRequest <= '1';
@@ -104,7 +111,7 @@ begin
                if (newPitchCount = unsigned(SND_CH_PITCH)) then
                   sampleRequest <= '1';
                   pitchCount    <= (others => '0');
-                  sampleposReq  <= sampleposReq + 1;
+                  sampleposReq_i  <= sampleposReq_i + 1;
                   soundoutL     <= signed('0' & (nextData * unsigned(SND_CH_Vol(7 downto 4))));
                   soundoutR     <= signed('0' & (nextData * unsigned(SND_CH_Vol(3 downto 0))));
                end if;

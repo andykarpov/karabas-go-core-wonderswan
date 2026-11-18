@@ -48,7 +48,7 @@ architecture arch of sprites is
       Scr2Prio      : std_logic;
       windowClip    : std_logic;
       palette       : std_logic_vector(2 downto 0);
-      tileColor     : std_logic_vector(3 downto 0);
+      tileColor_i     : std_logic_vector(3 downto 0);
       tileColorNext : std_logic_vector(3 downto 0);
    end record;
  
@@ -78,7 +78,14 @@ architecture arch of sprites is
    
    signal wxCheck         : unsigned(7 downto 0) := (others => '0');
 
-begin 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal tileColor_i : std_logic_vector(3 downto 0) := (others => '0');
+
+begin
+
+   -- karabas: the out ports from their internal copies
+   tileColor <= tileColor_i;
+ 
    
    process (clk)
       variable tileX8 : unsigned(7 downto 0);
@@ -182,7 +189,7 @@ begin
                         end if;     
                      end if;
                   
-                     spriteSettings(i).tileColor <= spriteSettings(i).tileColorNext;
+                     spriteSettings(i).tileColor_i <= spriteSettings(i).tileColorNext;
                      -- find active sprite
                      if (spritesActive(i) = '1') then
                         if ((posX - spriteSettings(i).xPos) < 8) then
@@ -212,11 +219,11 @@ begin
                   tileActive  <= spriteActiveOn;
                   tilePrio    <= spriteSettings(spriteActiveCnt).Scr2Prio;
                   tilePalette <= '1' & spriteSettings(spriteActiveCnt).palette;
-                  tileColor   <= spriteSettings(spriteActiveCnt).tileColor;
+                  tileColor_i   <= spriteSettings(spriteActiveCnt).tileColor_i;
                   
                   tileActive2  <= spriteActiveOn2;
                   tilePalette2 <= '1' & spriteSettings(spriteActiveCnt2).palette;
-                  tileColor2   <= spriteSettings(spriteActiveCnt2).tileColor;
+                  tileColor2   <= spriteSettings(spriteActiveCnt2).tileColor_i;
             
             end if;
    

@@ -33,7 +33,16 @@ parameter data_width = 32;
 parameter depth = 6;
 parameter full_threshold = 2; // Number of entries free to be not-full
 
-localparam ptr_bits = $clog2(depth);
+// karabas: XST does not take $clog2 in a localparam: a constant function
+function integer kg_clog2(input integer v);
+    integer n;
+    begin
+        kg_clog2 = 0;
+        for (n = v - 1; n > 0; n = n >> 1)
+            kg_clog2 = kg_clog2 + 1;
+    end
+endfunction
+localparam ptr_bits = kg_clog2(depth);
 
 reg [data_width-1:0] mem[depth-1:0] /* synthesis syn_ramstyle = "no_rw_check"*/;
 reg [ptr_bits-1:0] rd_ptr;

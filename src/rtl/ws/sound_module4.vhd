@@ -63,7 +63,14 @@ architecture arch of sound_module4 is
    signal SS_SOUND4      : std_logic_vector(REG_SAVESTATE_SOUND4.upper downto REG_SAVESTATE_SOUND4.lower);
    signal SS_SOUND4_BACK : std_logic_vector(REG_SAVESTATE_SOUND4.upper downto REG_SAVESTATE_SOUND4.lower);
 
-begin 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal sampleposReq_i : unsigned(4 downto 0) := (others => '0');
+
+begin
+
+   -- karabas: the out ports from their internal copies
+   sampleposReq <= sampleposReq_i;
+ 
 
    iREG_SND_CH_PITCH_L : entity work.eReg generic map ( REG_SND_CH4_PITCH_L  ) port map (clk, RegBus_Din, RegBus_Adr, RegBus_wren, RegBus_rst, reg_wired_or(0), SND_CH_PITCH( 7 downto 0), SND_CH_PITCH( 7 downto 0));  
    iREG_SND_CH_PITCH_H : entity work.eReg generic map ( REG_SND_CH4_PITCH_H  ) port map (clk, RegBus_Din, RegBus_Adr, RegBus_wren, RegBus_rst, reg_wired_or(1), SND_CH_PITCH(10 downto 8), SND_CH_PITCH(10 downto 8));  
@@ -100,7 +107,7 @@ begin
             SND_NOISE     <= SS_SOUND4(19 downto 15);  
             SND_RANDOM    <= SS_SOUND4(14 downto  0);  
       
-            sampleposReq  <= (others => '0');           
+            sampleposReq_i  <= (others => '0');           
             soundoutL     <= (others => '0');
             soundoutR     <= (others => '0');
             sampleRequest <= '1';
@@ -128,7 +135,7 @@ begin
                   
                else
                   sampleRequest <= '1';
-                  sampleposReq  <= sampleposReq + 1;
+                  sampleposReq_i  <= sampleposReq_i + 1;
                   soundoutL     <= signed('0' & (nextData * unsigned(SND_CH_Vol(7 downto 4))));
                   soundoutR     <= signed('0' & (nextData * unsigned(SND_CH_Vol(3 downto 0))));
                end if;

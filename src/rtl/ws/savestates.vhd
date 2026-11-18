@@ -111,7 +111,14 @@ architecture arch of savestates is
    
    signal header_amount       : unsigned(31 downto 0) := to_unsigned(1, 32);
 
-begin 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal bus_out_Din_i : std_logic_vector(63 downto 0) := (others => '0');
+
+begin
+
+   -- karabas: the out ports from their internal copies
+   bus_out_Din <= bus_out_Din_i;
+ 
 
    savestate_busy <= '0' when state = IDLE else '1';
    
@@ -186,7 +193,7 @@ begin
                end if;            
             
             when SAVEINTERNALS_WAIT =>
-               bus_out_Din    <= BUS_Dout;
+               bus_out_Din_i    <= BUS_Dout;
                bus_out_ena    <= '1';
                state          <= SAVEINTERNALS_WRITE;
             
@@ -213,7 +220,7 @@ begin
                else
                   state          <= SAVESIZEAMOUNT;
                   bus_out_Adr    <= std_logic_vector(to_unsigned(savestate_address, 26));
-                  bus_out_Din    <= std_logic_vector(to_unsigned(STATESIZE, 32)) & std_logic_vector(header_amount);
+                  bus_out_Din_i    <= std_logic_vector(to_unsigned(STATESIZE, 32)) & std_logic_vector(header_amount);
                   bus_out_ena    <= '1';
                   if (increaseSSHeaderCount = '0') then
                      bus_out_be  <= x"F0";
@@ -236,9 +243,9 @@ begin
             
             when SAVEMEMORY_READ =>
                if (savetype_counter = 0) then
-                  bus_out_Din(bytecounter * 8 +  7 downto bytecounter * 8)  <= Save_RAMReadData(7 downto 0);
+                  bus_out_Din_i(bytecounter * 8 +  7 downto bytecounter * 8)  <= Save_RAMReadData(7 downto 0);
                else
-                  bus_out_Din(bytecounter * 8 + 15 downto bytecounter * 8)  <= Save_RAMReadData;
+                  bus_out_Din_i(bytecounter * 8 + 15 downto bytecounter * 8)  <= Save_RAMReadData;
                end if;
                if (savetype_counter = 0) then
                   Save_RAMAddr   <= std_logic_vector(unsigned(Save_RAMAddr) + 1);

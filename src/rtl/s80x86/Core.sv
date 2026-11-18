@@ -526,7 +526,8 @@ ALU             ALU(.a(a_bus),
                     .shift_count(tmp_val[4:0]),
                     .busy(alu_busy));
 
-Divider         Divider(.clk(clk),
+s80_Divider     Divider( // karabas: renamed module
+               .clk(clk),
                         .reset(reset),
                         .start(do_divide),
                         .is_8_bit(is_8_bit),

@@ -302,7 +302,7 @@ begin
       
    cpu_dataread <= cpu_dataread_16 when cpu_unaligned = '0' else x"00" & cpu_dataread_16(15 downto 8);
   
-   process (all)
+   process (cpu_dataread_16, MemAccessTypeNew, MemAccessType, BIOS_data, BIOS_dataColor, EXTRAM_dataread, RAM_dataReadCPU, isColor, HW_FLAGS_set, cpu_addr, BANK_ROM2, rommask, cpu_datawrite, RAM_dataWriteEnable, cpu_be, cpu_write, sramMask, BANK_SRAM, BANK_ROM0, BANK_ROM1, SSMEM_WrEn, sleep_savestate, SSMEM_Addr, SSMEM_WriteData, SSMEM_RdEn) -- karabas: was process (all), VHDL-93 (XST)
       variable BiosAccess : std_logic;
    begin
       cpu_dataread_16 <= x"0000";
@@ -318,7 +318,7 @@ begin
       end case;
       
       BiosAccess := '0';
-      if (isColor) then
+      if (isColor = '1') then -- karabas: VHDL-93 (XST)
          if (HW_FLAGS_set = '0' and cpu_addr >= 16#100000# - 8192) then
             BiosAccess       := '1'; 
             MemAccessTypeNew <= BIOSCOLOR;

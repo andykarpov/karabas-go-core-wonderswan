@@ -80,3 +80,6 @@ src/sim/build/
 src/kg_*.stamp
 src/build_*.log
 src/measure/*.log
+!src/measure/*.prj
+!src/measure/*.xst
+src/xst_*/

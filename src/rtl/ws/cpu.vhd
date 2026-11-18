@@ -387,8 +387,19 @@ architecture arch of cpu is
    signal testcmd          : unsigned(31 downto 0);
    signal testpcsum        : unsigned(63 downto 0);
 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal bus_read_i : std_logic := '0';
+   signal bus_write_i : std_logic := '0';
+   signal cpu_export_i : cpu_export_type;
+
 
 begin
+
+   -- karabas: the out ports from their internal copies
+   bus_read <= bus_read_i;
+   bus_write <= bus_write_i;
+   cpu_export <= cpu_export_i;
+
 
    cpu_idle       <= '1' when cpustage = CPUSTAGE_IDLE else '0';
    cpu_halt       <= halt;
@@ -499,8 +510,8 @@ begin
          DIVstart         <= '0';
          cpu_done         <= '0';
          
-         bus_read         <= '0';
-         bus_write        <= '0';
+         bus_read_i         <= '0';
+         bus_write_i        <= '0';
          
          if (ce_4x = '1') then
             clearPrefetch    <= '0';
@@ -626,7 +637,7 @@ begin
                            fetchedSource1 <= '0';
                            fetchedSource2 <= '0';
                            memFirst       <= '1';
-                           if (irqExtern) then
+                           if (irqExtern = '1') then -- karabas: VHDL-93 (XST)
                               irqvector   <= irqvector_in;
                            end if;
                            
@@ -1498,7 +1509,7 @@ begin
                            else
                               bus_addr         <= resize(varmemSegment * 16 + memAddr, 20);
                            end if;
-                           bus_read         <= '1';
+                           bus_read_i         <= '1';
                            prefetchAllow    <= '0';
                         elsif (source2 = OPSOURCE_MEM and fetchedSource2 = '0') then
                            if (unaligned2 = '1') then
@@ -1506,7 +1517,7 @@ begin
                            else
                               bus_addr         <= resize(varmemSegment * 16 + memAddr, 20);
                            end if;
-                           bus_read         <= '1';
+                           bus_read_i         <= '1';
                            prefetchAllow    <= '0';
                         end if;
                      end if;  
@@ -1596,7 +1607,7 @@ begin
                   when CPUSTAGE_IRQVECTOR_REQ =>
                      if (ce = '1') then
                         bus_addr      <= resize(irqvector, 20);
-                        bus_read      <= '1';
+                        bus_read_i      <= '1';
                         prefetchAllow <= '0';
                         irqvector     <= irqvector + 2;
                         cpustage      <= CPUSTAGE_IRQVECTOR_WAIT;
@@ -1658,8 +1669,8 @@ begin
                         if (pushFirst = '1') then
                            if (regs.reg_sp(0) = '0') then -- aligned
                               regs.reg_sp      <= regs.reg_sp - 2;
-                              bus_read         <= '0';
-                              bus_write        <= '1';
+                              bus_read_i         <= '0';
+                              bus_write_i        <= '1';
                               bus_be           <= "11";
                               bus_addr         <= resize(regs.reg_ss * 16 + regs.reg_sp - 2, 20);
                               bus_datawrite    <= pushValue;
@@ -1667,8 +1678,8 @@ begin
                               cpustage         <= CPUSTAGE_CHECKDATAREADY;
                               pushlist(pushindex) <= '0';
                            else
-                              bus_read         <= '0';
-                              bus_write        <= '1';
+                              bus_read_i         <= '0';
+                              bus_write_i        <= '1';
                               bus_be           <= "01";
                               bus_addr         <= resize(regs.reg_ss * 16 + regs.reg_sp - 2, 20);
                               bus_datawrite    <= pushValue;
@@ -1677,8 +1688,8 @@ begin
                            end if;
                         else
                            regs.reg_sp      <= regs.reg_sp - 2;
-                           bus_read         <= '0';
-                           bus_write        <= '1';
+                           bus_read_i         <= '0';
+                           bus_write_i        <= '1';
                            bus_be           <= "01";
                            bus_addr         <= resize(regs.reg_ss * 16 + regs.reg_sp - 1, 20);
                            bus_datawrite    <= x"00" & pushValue(15 downto 8);
@@ -1706,8 +1717,8 @@ begin
                         end loop;
                         poptarget <= popindex;
                         
-                        bus_read         <= '1';
-                        bus_write        <= '0';
+                        bus_read_i         <= '1';
+                        bus_write_i        <= '0';
                         if (popFirst = '1') then
                            bus_addr         <= resize(regs.reg_ss * 16 + regs.reg_sp, 20);
                         else
@@ -2174,7 +2185,7 @@ begin
                         when OP_MOVMEM =>
                            if (optarget /= OPTARGET_NONE) then
                               prefetchAllow <= '0';
-                              if (bus_read = '0' and bus_write = '0' and (waitexe = '0' or ce = '1')) then
+                              if (bus_read_i = '0' and bus_write_i = '0' and (waitexe = '0' or ce = '1')) then
                                  memFirst  <= '0';
                                  waitexe   <= '1';
                                  
@@ -2183,8 +2194,8 @@ begin
                                  if (prefixSegmentCS = '1') then varmemSegment := regs.reg_cs; end if;
                                  if (prefixSegmentSS = '1') then varmemSegment := regs.reg_ss; end if;
                                  if (prefixSegmentDS = '1') then varmemSegment := regs.reg_ds; end if;
-                                 bus_read          <= '0';
-                                 bus_write         <= '1';
+                                 bus_read_i          <= '0';
+                                 bus_write_i         <= '1';
                         
                                  if (memFirst = '0') then
                                     bus_addr         <= resize(varmemSegment * 16 + memAddr + 1, 20);
@@ -2373,8 +2384,8 @@ begin
                                        if (prefixSegmentCS = '1') then varmemSegment := regs.reg_cs; end if;
                                        if (prefixSegmentSS = '1') then varmemSegment := regs.reg_ss; end if;
                                        if (prefixSegmentDS = '1') then varmemSegment := regs.reg_ds; end if;
-                                       bus_read          <= '1';
-                                       bus_write         <= '0';
+                                       bus_read_i          <= '1';
+                                       bus_write_i         <= '0';
                                        if (memFirst = '0') then
                                           bus_addr       <= resize(varmemSegment * 16 + regs.reg_si + 1, 20);
                                        else
@@ -2395,7 +2406,7 @@ begin
                                        stringLoad(15 downto 8) <= unsigned(bus_dataread(7 downto 0));
                                     end if;
                                     if (opsize = 1 or memFirst = '0') then
-                                       if (regs.FlagDir) then 
+                                       if (regs.FlagDir = '1') then -- karabas: VHDL-93 (XST) 
                                           regs.reg_si <= regs.reg_si - opsize;
                                        else                                 
                                           regs.reg_si <= regs.reg_si + opsize;
@@ -2439,8 +2450,8 @@ begin
                                  when 0 =>
                                     if (ce = '1') then
                                        opstep <= 1;
-                                       bus_read          <= '1';
-                                       bus_write         <= '0';
+                                       bus_read_i          <= '1';
+                                       bus_write_i         <= '0';
                                        if (memFirst = '0') then
                                           bus_addr       <= resize(regs.reg_es * 16 + regs.reg_di + 1, 20);
                                        else
@@ -2469,7 +2480,7 @@ begin
                                  when 3 =>
                                     if (ce = '1') then
                                        exeDone := '1';
-                                       if (regs.FlagDir) then 
+                                       if (regs.FlagDir = '1') then -- karabas: VHDL-93 (XST) 
                                           regs.reg_di <= regs.reg_di - opsize;
                                        else                                 
                                           regs.reg_di <= regs.reg_di + opsize;
@@ -2503,12 +2514,12 @@ begin
                               exeDone         := '1';
                            else
                               prefetchAllow <= '0';
-                              if (bus_read = '0' and bus_write = '0' and (waitexe = '0' or ce = '1')) then
+                              if (bus_read_i = '0' and bus_write_i = '0' and (waitexe = '0' or ce = '1')) then
                                  memFirst  <= '0';
                                  waitexe   <= '1';
                                  
-                                 bus_read          <= '0';
-                                 bus_write         <= '1';
+                                 bus_read_i          <= '0';
+                                 bus_write_i         <= '1';
                                  bus_be            <= "01";
                                  if (memFirst = '0') then
                                     bus_datawrite    <= x"00" & std_logic_vector(resultval(15 downto 8));
@@ -2520,7 +2531,7 @@ begin
                                  
                                  if (opsize = 1 or memFirst = '0') then 
                                     exeDone   := '1';
-                                    if (regs.FlagDir) then 
+                                    if (regs.FlagDir = '1') then -- karabas: VHDL-93 (XST) 
                                        regs.reg_di <= regs.reg_di - opsize;
                                     else                                 
                                        regs.reg_di <= regs.reg_di + opsize;
@@ -2559,8 +2570,8 @@ begin
                                     if (prefixSegmentCS = '1') then varmemSegment := regs.reg_cs; end if;
                                     if (prefixSegmentSS = '1') then varmemSegment := regs.reg_ss; end if;
                                     if (prefixSegmentDS = '1') then varmemSegment := regs.reg_ds; end if;
-                                    bus_read          <= '1';
-                                    bus_write         <= '0';
+                                    bus_read_i          <= '1';
+                                    bus_write_i         <= '0';
                                     if (memFirst = '1') then 
                                        bus_addr          <= resize(varmemSegment * 16 + regs.reg_bp - (enterCnt * 2), 20);
                                     else
@@ -2817,7 +2828,7 @@ begin
                      prefetchAddrOld <= prefetchAddr;
                      prefetchState <= PREFETCH_WAIT;
                      bus_addr <= prefetchAddr;
-                     bus_read <= '1';
+                     bus_read_i <= '1';
                      if (prefetchAddr(0) = '1') then
                         prefetchAddr  <= PrefetchAddr + 1;
                         prefetch1byte <= '1';
@@ -2889,21 +2900,21 @@ begin
       remainder => DIVremainder
    );
 
-   cpu_export.reg_ax <= regs.reg_ax;        
-   cpu_export.reg_cx <= regs.reg_cx;        
-   cpu_export.reg_dx <= regs.reg_dx;        
-   cpu_export.reg_bx <= regs.reg_bx;        
-   cpu_export.reg_sp <= regs.reg_sp;        
-   cpu_export.reg_bp <= regs.reg_bp;        
-   cpu_export.reg_si <= regs.reg_si;        
-   cpu_export.reg_di <= regs.reg_di;        
-   cpu_export.reg_es <= regs.reg_es;        
-   cpu_export.reg_cs <= regs.reg_cs;        
-   cpu_export.reg_ss <= regs.reg_ss;        
-   cpu_export.reg_ds <= regs.reg_ds;        
-   cpu_export.reg_ip <= regs.reg_ip;        
-   cpu_export.reg_f  <= reg_f ;        
-   cpu_export.opcodebyte_last  <= opcodebyte;        
+   cpu_export_i.reg_ax <= regs.reg_ax;        
+   cpu_export_i.reg_cx <= regs.reg_cx;        
+   cpu_export_i.reg_dx <= regs.reg_dx;        
+   cpu_export_i.reg_bx <= regs.reg_bx;        
+   cpu_export_i.reg_sp <= regs.reg_sp;        
+   cpu_export_i.reg_bp <= regs.reg_bp;        
+   cpu_export_i.reg_si <= regs.reg_si;        
+   cpu_export_i.reg_di <= regs.reg_di;        
+   cpu_export_i.reg_es <= regs.reg_es;        
+   cpu_export_i.reg_cs <= regs.reg_cs;        
+   cpu_export_i.reg_ss <= regs.reg_ss;        
+   cpu_export_i.reg_ds <= regs.reg_ds;        
+   cpu_export_i.reg_ip <= regs.reg_ip;        
+   cpu_export_i.reg_f  <= reg_f ;        
+   cpu_export_i.opcodebyte_last  <= opcodebyte;        
 
 end architecture;
 

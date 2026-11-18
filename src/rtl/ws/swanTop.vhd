@@ -263,7 +263,22 @@ architecture arch of SwanTop is
    signal export_32              : std_logic_vector(31 downto 0);
 -- synthesis translate_on
 
+   -- karabas: XST (VHDL-93) cannot read out ports: internal copies
+   signal EXTRAM_doRefresh_i : std_logic := '0';
+   signal EXTRAM_read_i : std_logic;
+   signal EXTRAM_write_i : std_logic;
+   signal audio_l_i : std_logic_vector(15 downto 0);
+   signal audio_r_i : std_logic_vector(15 downto 0);
+
 begin
+
+   -- karabas: the out ports from their internal copies
+   EXTRAM_doRefresh <= EXTRAM_doRefresh_i;
+   EXTRAM_read <= EXTRAM_read_i;
+   EXTRAM_write <= EXTRAM_write_i;
+   audio_l <= audio_l_i;
+   audio_r <= audio_r_i;
+
    
    -- CE Generation
    --
@@ -302,7 +317,7 @@ begin
             refreshCnt <= refreshCnt + 1;
          end if;
          
-         EXTRAM_acc_1 <= EXTRAM_read or EXTRAM_write;
+         EXTRAM_acc_1 <= EXTRAM_read_i or EXTRAM_write_i;
          EXTRAM_acc_2 <= EXTRAM_acc_1;
          
          ce            <= '0'; 
@@ -343,7 +358,7 @@ begin
                   if (ce_counter = 2 or ce_counter = 5 or ce_counter = 8 or ce_counter = 11) then
                      ce_4x <= '1';
                   end if;
-                  if (EXTRAM_doRefresh = '1' and EXTRAM_read = '0' and EXTRAM_write = '0' and EXTRAM_acc_1 = '0' and EXTRAM_acc_2 = '0') then
+                  if (EXTRAM_doRefresh_i = '1' and EXTRAM_read_i = '0' and EXTRAM_write_i = '0' and EXTRAM_acc_1 = '0' and EXTRAM_acc_2 = '0') then
                      refreshCnt <= 0;
                   end if;
                   if (ce_4x = '1') then
@@ -351,7 +366,7 @@ begin
                   end if;
 
                when FASTFORWARDMODE =>
-                  if (fastforward = '0' or serial_link_active = '1' or savestate_slow = '1' or rewind_active = '1' or cpuCanSpeedup = '0' or EXTRAM_read = '1' or EXTRAM_write = '1') then
+                  if (fastforward = '0' or serial_link_active = '1' or savestate_slow = '1' or rewind_active = '1' or cpuCanSpeedup = '0' or EXTRAM_read_i = '1' or EXTRAM_write_i = '1') then
                      clockState <= NORMAL;
                      if (ce_counter >= 2) then
                         ce_counter <= ce_counter - 1;
@@ -372,7 +387,7 @@ begin
                   end if;
                   
                when REFRESH =>
-                  if (EXTRAM_read = '0' and EXTRAM_write = '0' and EXTRAM_acc_1 = '0' and EXTRAM_acc_2 = '0') then
+                  if (EXTRAM_read_i = '0' and EXTRAM_write_i = '0' and EXTRAM_acc_1 = '0' and EXTRAM_acc_2 = '0') then
                      refreshCnt <= 0;
                      refreshwait <= refreshwait + 1;
                      if (refreshwait = 3) then
@@ -387,7 +402,7 @@ begin
       end if;
    end process;
    
-   EXTRAM_doRefresh <= '1' when (normalRefresh = '1' or (clockState = REFRESH and refreshwait = 0)) else '0';
+   EXTRAM_doRefresh_i <= '1' when (normalRefresh = '1' or (clockState = REFRESH and refreshwait = 0)) else '0';
    
    -- register
    process (reg_wired_or)
@@ -412,7 +427,7 @@ begin
                   '1';
    
    
-   RegBus_Dout_mapped <= RegBus_Dout when (isColor or regIsMapped) else x"90"; 
+   RegBus_Dout_mapped <= RegBus_Dout when (isColor = '1' or regIsMapped = '1') else x"90"; -- karabas: VHDL-93 (XST)
    
    RegBus_Din  <= SSMEM_WriteData(7 downto 0) when sleep_savestate = '1' else CPU_RegBus_Din;
    RegBus_Adr  <= SSMEM_Addr(7 downto 0)      when sleep_savestate = '1' else CPU_RegBus_Adr;
@@ -504,8 +519,8 @@ begin
       RegBus_rst           => RegBus_rst, 
       RegBus_Dout          => reg_wired_or(2),
       
-      EXTRAM_read          => EXTRAM_read,     
-      EXTRAM_write         => EXTRAM_write,    
+      EXTRAM_read          => EXTRAM_read_i,     
+      EXTRAM_write         => EXTRAM_write_i,    
       EXTRAM_be            => EXTRAM_be,    
       EXTRAM_addr          => EXTRAM_addr,     
       EXTRAM_datawrite     => EXTRAM_datawrite,
@@ -768,8 +783,8 @@ begin
       soundDMACh2    => soundDMACh2,  
       soundDMACh5    => soundDMACh5, 
       
-      audio_l        => audio_l,
-      audio_r        => audio_r,
+      audio_l        => audio_l_i,
+      audio_r        => audio_r_i,
          
       -- savestates        
       SSBUS_Din      => SSBUS_Din,  
@@ -907,7 +922,7 @@ begin
       --new_export <= cpu_done and (not dma_active); 
       new_export <= cpu_done; 
       
-      export_32 <= audio_l & audio_r;
+      export_32 <= audio_l_i & audio_r_i;
    
       iexport : entity work.export
       port map

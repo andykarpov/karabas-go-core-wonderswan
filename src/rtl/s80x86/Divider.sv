@@ -18,7 +18,8 @@
 // along with s80x86.  If not, see <http://www.gnu.org/licenses/>.
 
 `default_nettype none
-module Divider(input logic clk,
+module s80_Divider( // karabas: renamed, the MiSTer VHDL divider has the same name (XST is case-insensitive)
+input logic clk,
                input logic reset,
                input logic start,
                input logic is_8_bit,
