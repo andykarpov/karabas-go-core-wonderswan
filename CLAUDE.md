@@ -11,7 +11,7 @@ User decisions (2026-11-18): hybrid (MiSTer master + open-pocket-ws parts, the C
 ## Layout
 
 - `src/rtl/ws/`: the upstream MiSTer `rtl/` (VHDL-2008 + sdram.sv).
-- `src/rtl/opws/`: the open-pocket-ws copies of the MiSTer files it changed (sprites, gpu, memorymux, dpram, eeprom, boot stub ROMs, stubs of rtc / serial / savestates) and its `ws_core.vhd`. `swanTop.vhd` here has the generic `KG_CPU_S80` (1 = s80x86, 0 = the MiSTer V30MZ).
+- `src/rtl/opws/`: the open-pocket-ws copies of the MiSTer files it changed (sprites, gpu, memorymux, dpram, eeprom, boot stub ROMs, stubs of rtc / serial / savestates) and its `ws_core.vhd`. `swanTop.vhd` here has the generic `KG_CPU_S80` (0 = the MiSTer V30MZ, the default and the user's pick after Ф0; 1 = s80x86, the fallback).
 - `src/rtl/s80x86/`, `src/rtl/cpu/`: the s80x86 CPU (SystemVerilog) and its V30MZ wrapper `cpu_s80.sv` + timing table.
 - `src/tools/vhdl93.py`: VHDL-2008 -> VHDL-93 for XST (process (all), reads of out ports, boolean std_logic conditions), applied once, in git. Run it again on any newly imported VHDL.
 - `src/tools/sv2v.sh measure`: sv2v of the CPU -> `src/measure/sv2v_s80/` and the `.prj` lists; `make measure-mister|measure-s80|measure-v30`, `make measure-report`.

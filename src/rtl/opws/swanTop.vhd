@@ -11,7 +11,7 @@ entity SwanTop is
    (
       is_simu : std_logic := '0';
       -- karabas: CPU choice: 1 = the s80x86-based cpu_s80 of open-pocket-ws, 0 = the MiSTer V30MZ (cpu.vhd)
-      KG_CPU_S80 : integer := 1
+      KG_CPU_S80 : integer := 0
    );
    port
    (
