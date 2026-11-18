@@ -211,6 +211,7 @@ kg_mcu2 #(
 	.ENABLE_OSD(1),
 	.ENABLE_IMG(1),      // the .sav file of kg_bk_ram
 	.IMG_OUT_LATENCY(2), // the sector buffer of kg_bk_ram
+	.ENABLE_RTC(1),      // the firmware clock for the cartridge RTC
 	.ENABLE_AUX(0),
 	.ENABLE_FT(1),
 	.ENABLE_SD2(1)
