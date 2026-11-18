@@ -12,14 +12,17 @@
 
  Memory: the cartridge ROM (and its save RAM, as MiSTer: SwanTop maps it into EXTRAM) in the SDRAM
  (ws_sdram.v, the MiSTer controller); the 64 KB RAM of the machine in block RAM; the SRAM holds
- the three frame buffers of ws_fb.v. Boot: the open boot stub of open-pocket-ws (no Bandai IPL).
+ the ring of 8 frame buffers of ws_fb.v. Boot: the open boot stub of open-pocket-ws (no Bandai IPL).
+ Saves: kg_bk_ram (.sav of the cartridge SRAM / EEPROM) through ws_bk.v; the cartridge RTC is set
+ from the firmware RTC.
 
  The cartridge: the file of the core (type fileloader: .ws, .wsc in the wonderswan folder) through
  the file loader of kg_mcu2 into the SDRAM (ws_loader.v); its header gives the colour flag (Auto),
  the ROM / save types and the RTC flag. The machine is held in reset until a cartridge is in.
 
  Soft switches (core.json osd order):
-   0 System (Auto / Color / Mono)   1 Reset
+   0 System (Auto / Color / Mono)   1 Orientation (Auto / Horz / Vert / Vert180)
+   2 Flickerblend (Off / 2 / 3 frames)   3 Reset
 */
 
 module karabas_minig_top (

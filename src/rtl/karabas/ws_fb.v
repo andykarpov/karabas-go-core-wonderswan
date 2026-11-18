@@ -117,16 +117,20 @@ reg [1:0]  t_k = 2'd0, t_k_d = 2'd0;
 reg        t_end = 1'b0, t_end_d = 1'b0;   // the last frame of the pixel
 reg [8:0]  t_wa = 9'd0, t_wa_d = 9'd0;
 reg [1:0]  t_n = 2'd0, t_n_d = 2'd0;
+// a third stage: MD into a register first (TS_SRAM_IN 10 ns), mixed a clock later
+reg        t_v_q = 1'b0, t_end_q = 1'b0;
+reg [1:0]  t_k_q = 2'd0, t_n_q = 2'd0;
+reg [8:0]  t_wa_q = 9'd0;
+reg [11:0] md_q = 12'd0;
 
 reg [5:0]  acc_r = 6'd0, acc_g = 6'd0, acc_b = 6'd0;
 reg        lb_we = 1'b0;
 reg [8:0]  lb_wa = 9'd0;
 reg [23:0] lb_wd = 24'd0;
 
-wire [11:0] md12 = MD[11:0];
-wire [5:0] s_r = (t_k_d == 2'd0 ? 6'd0 : acc_r) + { 2'd0, md12[11:8] };
-wire [5:0] s_g = (t_k_d == 2'd0 ? 6'd0 : acc_g) + { 2'd0, md12[7:4] };
-wire [5:0] s_b = (t_k_d == 2'd0 ? 6'd0 : acc_b) + { 2'd0, md12[3:0] };
+wire [5:0] s_r = (t_k_q == 2'd0 ? 6'd0 : acc_r) + { 2'd0, md_q[11:8] };
+wire [5:0] s_g = (t_k_q == 2'd0 ? 6'd0 : acc_g) + { 2'd0, md_q[7:4] };
+wire [5:0] s_b = (t_k_q == 2'd0 ? 6'd0 : acc_b) + { 2'd0, md_q[3:0] };
 
 // a channel to 8 bits: 1 frame v * 17, 2 frames s * 17 / 2, 3 frames s * 91 / 16 (as 255 / 45)
 function [7:0] mix;
@@ -223,15 +227,21 @@ always @(posedge clk) begin
 	t_end_d <= t_end;
 	t_wa_d <= t_wa;
 	t_n_d <= t_n;
+	t_v_q <= t_v_d;
+	t_k_q <= t_k_d;
+	t_end_q <= t_end_d;
+	t_wa_q <= t_wa_d;
+	t_n_q <= t_n_d;
+	md_q <= MD[11:0];
 	lb_we <= 1'b0;
-	if (t_v_d) begin
+	if (t_v_q) begin       // reads of one pixel are two clocks apart at least: acc is ready
 		acc_r <= s_r;
 		acc_g <= s_g;
 		acc_b <= s_b;
-		if (t_end_d) begin
+		if (t_end_q) begin
 			lb_we <= 1'b1;
-			lb_wa <= t_wa_d;
-			lb_wd <= { mix(s_r, t_n_d), mix(s_g, t_n_d), mix(s_b, t_n_d) };
+			lb_wa <= t_wa_q;
+			lb_wd <= { mix(s_r, t_n_q), mix(s_g, t_n_q), mix(s_b, t_n_q) };
 		end
 	end
 end
