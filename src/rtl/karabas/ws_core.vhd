@@ -4,7 +4,9 @@
 -- the open-pocket-ws parts, the MiSTer V30MZ with KG_CPU_S80 = 0) with only the ports the board uses
 -- and plain vectors for the Verilog top (pixel_out_addr is an integer in SwanTop). Savestates,
 -- rewind, the serial link and the RTC are tied off (Ф1); after open-pocket-ws ws_core.vhd.
--- Ф2: the port of the cartridge EEPROM (eeprom_*, clk_ram) for the .sav file (ws_bk.v).
+-- Ф2: the port of the cartridge EEPROM (eeprom_*, clk_ram) for the .sav file (ws_bk.v), the time
+-- of the cartridge RTC (MiSTer rtc.vhd) from the RTC of the firmware: RTC_savedtimeIn (BCD) is taken
+-- when RTC_saveLoaded rises; the timestamps stay 0 (no catch-up, the time is the current one).
 
 library IEEE;
 use IEEE.std_logic_1164.all;
@@ -37,6 +39,9 @@ entity ws_core is
       eeprom_dout        : out std_logic_vector(15 downto 0);
       eeprom_req         : in  std_logic;
       eeprom_rnw         : in  std_logic;
+
+      RTC_savedtimeIn    : in  std_logic_vector(41 downto 0);
+      RTC_saveLoaded     : in  std_logic;
 
       maskAddr           : in  std_logic_vector(23 downto 0);
       romtype            : in  std_logic_vector(7 downto 0);
@@ -131,8 +136,8 @@ begin
       RTC_timestampNew   => '0',
       RTC_timestampIn    => (others => '0'),
       RTC_timestampSaved => (others => '0'),
-      RTC_savedtimeIn    => (others => '0'),
-      RTC_saveLoaded     => '0',
+      RTC_savedtimeIn    => RTC_savedtimeIn,
+      RTC_saveLoaded     => RTC_saveLoaded,
       RTC_timestampOut   => open,
       RTC_savedtimeOut   => open,
 

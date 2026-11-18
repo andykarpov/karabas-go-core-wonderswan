@@ -74,6 +74,7 @@ ws_core ws (
 	.EXTRAM_be(ext_be), .EXTRAM_addr(ext_addr), .EXTRAM_datawrite(ext_wdata),
 	.EXTRAM_dataread(ext_rdata), .EXTRAM_ready(ext_ready),
 	.eepromWrite(), .eeprom_addr(10'd0), .eeprom_din(16'd0), .eeprom_dout(), .eeprom_req(1'b0), .eeprom_rnw(1'b1),
+	.RTC_savedtimeIn({ 8'h26, 5'h11, 6'h18, 3'd3, 6'h22, 7'h30, 7'h00 }), .RTC_saveLoaded(~ws_reset),
 	.maskAddr(mask_addr), .romtype(romtype), .ramtype(ramtype), .hasRTC(has_rtc),
 	.vertical(vertical), .pixel_out_addr(pixel_addr), .pixel_out_data(pixel_data),
 	.pixel_out_we(pixel_we), .audio_l(snd_l), .audio_r(snd_r),

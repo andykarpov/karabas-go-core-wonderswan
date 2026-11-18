@@ -202,6 +202,8 @@ wire sdc_busy, sdc_done, sdc_error, sdc_byte_in_strobe, bk_mount, bk_flushed;
 wire [2:0] sdc_slot;
 wire [8:0] sdc_byte_addr;
 
+wire [7:0] rtc_a, rtc_do;
+
 kg_mcu2 #(
 	.CAPS(16'h0002),     // backup RAM: the firmware flushes the .sav before a new game
 	.SW_N(2),
@@ -252,7 +254,7 @@ kg_mcu2 #(
 
 	.PORT_OUT_DATA(), .PORT_OUT_WR(), .PORT_OUT_READY(4'b1111), .PORT_IN_DATA(32'd0), .PORT_IN_WR(4'd0),
 	.PORT_CFG(128'd0), .PORT_IN_FULL(), .PORT_STAT(), .PORT_STAT_WR(),
-	.RTC_A(8'd0), .RTC_DI(8'd0), .RTC_CS(1'b0), .RTC_WR_N(1'b1), .RTC_DO(),
+	.RTC_A(rtc_a), .RTC_DI(8'd0), .RTC_CS(1'b0), .RTC_WR_N(1'b1), .RTC_DO(rtc_do),
 	.MATRIX_CMD(24'd0), .MATRIX_CMD_WR(1'b0), .DEBUG_ADDR(16'd0), .DEBUG_DATA(16'd0),
 
 	.FT_SPI_ON(ft_spi_on), .FT_VGA_ON(), .FT_RESET(), .FT_SCK(), .FT_MOSI(ft_mosi), .FT_MISO(FT_SPI_MISO),
@@ -412,6 +414,38 @@ ws_bk bk (
 	.ee_addr(ee_addr), .ee_din(ee_din), .ee_req(ee_req), .ee_rnw(ee_rnw), .ee_dout(ee_dout)
 );
 
+// ------------------------------------------------------------------ cartridge RTC
+
+// the time of the firmware RTC (core.json rtc_mode 2: MC146818 registers, BCD): seconds 0,
+// minutes 2, hours 4 (24 h), day of the week 6 (1 = Sunday), day 7, month 8, year 9. Read round
+// and round while the machine is in reset; RTC_saveLoaded rises with the reset end and the MiSTer
+// rtc.vhd takes the time (its week day 0 = Sunday). A time the game sets is lost on the next start.
+reg [2:0] rtc_i = 3'd0;
+reg [2:0] rtc_q = 3'd0;      // the register of rtc_do (rtc_a a clock before)
+reg [41:0] rtc_time = 42'd0;
+reg rtc_loaded = 1'b0;
+wire ws_reset_w;
+assign rtc_a = rtc_i == 3'd0 ? 8'h00 : rtc_i == 3'd1 ? 8'h02 : rtc_i == 3'd2 ? 8'h04 :
+	{ 5'd0, rtc_i } + 8'h03;   // 3..6 -> 6..9
+always @(posedge clk_sys) begin
+	rtc_q <= rtc_i;
+	rtc_i <= rtc_i == 3'd6 ? 3'd0 : rtc_i + 3'd1;
+	if (ws_reset_w) begin
+		rtc_loaded <= 1'b0;
+		case (rtc_q)
+			3'd0: rtc_time[6:0] <= rtc_do[6:0];
+			3'd1: rtc_time[13:7] <= rtc_do[6:0];
+			3'd2: rtc_time[19:14] <= rtc_do[5:0];
+			3'd3: rtc_time[22:20] <= rtc_do[2:0] - 3'd1;
+			3'd4: rtc_time[28:23] <= rtc_do[5:0];
+			3'd5: rtc_time[33:29] <= rtc_do[4:0];
+			default: rtc_time[41:34] <= rtc_do;
+		endcase
+	end
+	else
+		rtc_loaded <= 1'b1;
+end
+
 // reset: the PLLs, the Reset item, while a cartridge loads, until the first one is in, while the
 // .sav file loads
 reg [7:0] rst_cnt = 8'd0;
@@ -423,6 +457,7 @@ always @(posedge clk_sys) begin
 		rst_cnt <= rst_cnt + 8'd1;
 	ws_reset <= rst_cnt != 8'hFF;
 end
+assign ws_reset_w = ws_reset;
 
 // ------------------------------------------------------------------ keys
 
@@ -467,6 +502,9 @@ ws_core #(.KG_CPU_S80(1)) ws (
 	.eeprom_dout(ee_dout),
 	.eeprom_req(ee_req),
 	.eeprom_rnw(ee_rnw),
+
+	.RTC_savedtimeIn(rtc_time),
+	.RTC_saveLoaded(rtc_loaded),
 
 	.maskAddr(mask_addr),
 	.romtype(romtype),
