@@ -1,7 +1,7 @@
 {
     "id": "wonderswan",
     "name": "WonderSwan",
-    "build": "26111821",
+    "build": "26111822",
     "visible": true,
     "type": "fileloader",
     "dir": "wonderswan",
@@ -11,7 +11,7 @@
     "eeprom_bank": 255,
     "roms": [],
     "boards": {
-        "minig": {"link": 2, "build": "26111821", "bitstream": "karabas_minig.bin"}
+        "minig": {"link": 2, "build": "26111822", "bitstream": "karabas_minig.bin"}
     },
     "osd": [
     {"type": "S", "name": "System", "options": ["Auto", "Color", "Mono"], "default": 0, "hotkey": "Menu+S"},

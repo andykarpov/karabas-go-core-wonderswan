@@ -231,8 +231,8 @@ NET "FLASH_HOLD_N"     LOC="P12"    | IOSTANDARD = LVCMOS33; # CONF_IO3
 
 # ------------------------------------------------------------------------------------------------------------
 # Timing constraints (karabas_minig_top.v, ws_clocks.v):
-#   DCM_CLKGEN 50 * 87 / 118 -> PLL x18 (VCO 663.6 MHz): clk_sys 36.864 MHz (/18: SwanTop, the mcu link, the
-#   loader, ws_fb writes and the SRAM, the audio), clk_ram 110.592 MHz (/6: SwanTop clk_ram, ws_sdram).
+#   DCM_CLKGEN 50 * 14 / 19 -> PLL x18 (VCO 663.2 MHz): clk_sys 36.842 MHz (/18: SwanTop, the mcu link, the
+#   loader, ws_fb writes and the SRAM, the audio), clk_ram 110.53 MHz (/6: SwanTop clk_ram, ws_sdram).
 #   PLL on 50 MHz (VCO 650 MHz): clk_65 (/10: the video out, the OSD, HDMI, FT_CLK_OUT), clk_ser / clk_ser_n
 #   (/2, 325 MHz, 0 / 180 degrees: the HDMI serialiser).
 # clk_sys and clk_ram have their rising edges together (3 x), but their periods are not whole picoseconds: a

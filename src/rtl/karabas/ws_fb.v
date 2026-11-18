@@ -26,7 +26,8 @@
  of n. The requests cross to clk with a toggle (the line and buffers held stable meanwhile); the
  buffer numbers cross both ways as two agreeing samples (they change once a frame).
 
- hs / vs / de are positive (the top inverts the syncs), rgb is 8:8:8 (4 bits doubled).
+ hs / vs / de are positive (the top inverts the syncs), rgb is 8:8:8 (4 bits doubled). The picture area is
+ dark blue (000040) until the first complete frame.
 */
 
 module ws_fb (
@@ -223,6 +224,7 @@ reg [9:0]  px = 10'd0;          // the output pixel in the picture: source x = p
 
 reg p1_de = 1'b0, p1_hs = 1'b0, p1_vs = 1'b0, p1_pic = 1'b0;
 reg p2_de = 1'b0, p2_hs = 1'b0, p2_vs = 1'b0, p2_pic = 1'b0;
+reg p1_have = 1'b0, p2_have = 1'b0;
 
 always @(posedge clk_65) begin
 	pub_s1 <= pub;
@@ -285,18 +287,22 @@ always @(posedge clk_65) begin
 	p1_de <= hc < 11'd1024 && vc < 10'd768;
 	p1_hs <= hc >= H_SYNC0 && hc < H_SYNC1;
 	p1_vs <= vc >= V_SYNC0 && vc < V_SYNC1;
-	p1_pic <= rhave && in_img && hc >= X0 && hc < X0 + XW;
+	p1_pic <= in_img && hc >= X0 && hc < X0 + XW;
+	p1_have <= rhave;
 
 	// stage 2: the pixel (lb_q is the data of lb_ra of the clock before)
 	p2_de <= p1_de;
 	p2_hs <= p1_hs;
 	p2_vs <= p1_vs;
 	p2_pic <= p1_pic;
+	p2_have <= p1_have;
 
 	de <= p2_de;
 	hs <= p2_hs;
 	vs <= p2_vs;
-	rgb <= p2_pic ? { lb_q[11:8], lb_q[11:8], lb_q[7:4], lb_q[7:4], lb_q[3:0], lb_q[3:0] } : 24'd0;
+	// the picture; dark blue there until the machine has finished a frame (diagnostic of the bring-up)
+	rgb <= !p2_pic ? 24'd0 : !p2_have ? 24'h000040 :
+		{ lb_q[11:8], lb_q[11:8], lb_q[7:4], lb_q[7:4], lb_q[3:0], lb_q[3:0] };
 end
 
 endmodule

@@ -136,11 +136,12 @@ assign FLASH_HOLD_N = 1'b1;
 
 // ------------------------------------------------------------------ clocks
 
-wire clk_sys, clk_ram, clk_65, clk_ser, clk_ser_n, locked_sys, locked_vid;
+wire clk_sys, clk_ram, clk_sdr, clk_65, clk_ser, clk_ser_n, locked_sys, locked_vid;
 ws_clocks clocks (
 	.clk_in(CLK_50MHZ),
 	.clk_sys(clk_sys),
 	.clk_ram(clk_ram),
+	.clk_sdr(clk_sdr),
 	.clk_65(clk_65),
 	.clk_ser(clk_ser),
 	.clk_ser_n(clk_ser_n),
@@ -148,6 +149,7 @@ ws_clocks clocks (
 	.locked_vid(locked_vid)
 );
 wire areset_async = ~(locked_sys & locked_vid);
+wire areset_vid = ~locked_vid;   // the video group (HDMI) only: the OSD even when the machine clock fails
 wire areset;
 kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_rst (.clk(clk_sys), .d(areset_async), .q(areset));
 
@@ -399,8 +401,8 @@ ws_sdram sdram (
 	.ch3_rnw(ext_read),
 	.ch3_ready(ext_ready)
 );
-// the clock of the chip: clk_ram inverted (altddio_out of MiSTer: datain_h 0, datain_l 1)
-ODDR2 oddr_sdr_clk (.Q(SDR_CLK), .C0(clk_ram), .C1(~clk_ram), .CE(1'b1), .D0(1'b0), .D1(1'b1), .R(1'b0), .S(1'b0));
+// the clock of the chip: clk_sdr (clk_ram at 330 degrees, ws_clocks.v), not inverted
+ODDR2 oddr_sdr_clk (.Q(SDR_CLK), .C0(clk_sdr), .C1(~clk_sdr), .CE(1'b1), .D0(1'b1), .D1(1'b0), .R(1'b0), .S(1'b0));
 
 // ------------------------------------------------------------------ video
 
@@ -478,18 +480,18 @@ end
 
 // ------------------------------------------------------------------ HDMI
 
-wire dvi_only_65;
+wire dvi_only_65, sys_bad;
+kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_sysbad (.clk(clk_65), .d(~locked_sys), .q(sys_bad));
 kg_sync #(.W(1), .STAGES(3)) sync_dvi (.clk(clk_65), .d(dvi_only), .q(dvi_only_65));
 
 hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1)) hdmi (
 	.clk(clk_65),
 	.sclk(clk_ser),
 	.sclk_n(clk_ser_n),
-	// the reset straight from the PLLs, as core-sega: 26111820 had it through a kg_sync in clk_65 (fanout
-	// ~140 into the 325 MHz serialisers, -0.13 ns) and gave no picture on the board: the mod5 counters of
-	// the channels must leave the reset at the same serial clock
-	.reset(areset_async),
-	.rgb(osd_rgb),
+	// the reset straight from the video PLL (as core-sega: no synchroniser, the mod5 counters of the
+	// channels leave it at the same serial clock)
+	.reset(areset_vid),
+	.rgb(sys_bad ? 24'hFF0000 : osd_rgb),   // red: the machine clock is not locked (diagnostic)
 	.vsync(~osd_vs),     // 1024 x 768 at 60 Hz: negative syncs (VESA)
 	.hsync(~osd_hs),
 	.de(osd_de),
