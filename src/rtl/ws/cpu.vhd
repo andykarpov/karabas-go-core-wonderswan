@@ -242,7 +242,11 @@ architecture arch of cpu is
    -- decodedInstruction
    signal opcode           : tCPU_Opcode;
    signal opcodeNext       : tCPU_Opcode;
-   signal source1          : tOPSOURCE;
+   -- karabas: XST took opcodeNext as an FSM (one-hot of the 6 values it gets) and copied it into
+   -- opcode wrongly (OP_OPIN after OP_MOVREG: the CPU hung at the 2nd instruction on the board)
+   attribute fsm_extract : string;
+   attribute fsm_extract of opcodeNext : signal is "no";
+   signal source1         : tOPSOURCE;
    signal source2          : tOPSOURCE;
    signal optarget         : tOPTARGET;
    signal optarget2        : tOPTARGET;
