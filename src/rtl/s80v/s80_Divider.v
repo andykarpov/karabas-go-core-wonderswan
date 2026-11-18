@@ -65,23 +65,25 @@ module s80_Divider (
 				2'd0: begin
 					error <= 1'b0;
 					if (start) begin
-						if (div_by_zero || mag_overflow) begin
-							error <= 1'b1;
-							complete <= 1'b1;
-						end
-						else begin
-							R <= hi;
-							A <= lo;
-							D <= dvs_w;
-							n <= (is_8_bit ? 4'd7 : 4'd15);
-							s8 <= is_8_bit;
-							sgn <= is_signed;
-							q_neg <= dvd_neg ^ dvs_neg;
-							r_neg <= dvd_neg;
-							state <= 2'd1;
-						end
+						R <= hi;
+						A <= lo;
+						D <= dvs_w;
+						n <= (is_8_bit ? 4'd7 : 4'd15);
+						s8 <= is_8_bit;
+						sgn <= is_signed;
+						q_neg <= dvd_neg ^ dvs_neg;
+						r_neg <= dvd_neg;
+						state <= 2'd3;
 					end
 				end
+				2'd3:
+					if ((D == 16'd0) || (R >= D)) begin
+						error <= 1'b1;
+						complete <= 1'b1;
+						state <= 2'd0;
+					end
+					else
+						state <= 2'd1;
 				2'd1: begin
 					R <= (qbit ? diff[15:0] : R2[15:0]);
 					A <= {A[14:0], qbit};

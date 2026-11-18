@@ -85,6 +85,9 @@ initial begin
 		if (ext_read && !prev_rd) begin
 			n_rd = n_rd + 1;
 			if (n_rd <= 40) begin pend_a = ext_addr; pend = 3; end
+`ifdef S80
+			if (n_rd <= 40) $display("  rd %06x (cycle %0d)", ext_addr, i);
+`endif
 		end
 		prev_rd = ext_read;
 		if (pixel_we) last_we = i;

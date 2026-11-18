@@ -50,7 +50,7 @@ wire div_by_zero  = dvs_w == 16'd0;
 wire mag_overflow = hi >= dvs_w;
 
 // ---------------------------------------------------------------- iteration
-typedef enum bit [1:0] { D_IDLE, D_WORK, D_FIX } DivState_t;
+typedef enum bit [1:0] { D_IDLE, D_WORK, D_FIX, D_CHK } DivState_t;
 DivState_t state;
 
 reg  [15:0] R;           // partial remainder
@@ -83,21 +83,27 @@ always_ff @(posedge clk) begin
         D_IDLE: begin
             error <= 1'b0;
             if (start) begin
-                if (div_by_zero || mag_overflow) begin
-                    error    <= 1'b1;
-                    complete <= 1'b1;
-                end else begin
-                    R     <= hi;
-                    A     <= lo;
-                    D     <= dvs_w;
-                    n     <= is_8_bit ? 4'd7 : 4'd15;
-                    s8    <= is_8_bit;
-                    sgn   <= is_signed;
-                    q_neg <= dvd_neg ^ dvs_neg;
-                    r_neg <= dvd_neg;
-                    state <= D_WORK;
-                end
+                // karabas: operands are latched first, the zero / overflow
+                // check runs on the registers in D_CHK (one more clock):
+                // microcode -> divisor -> check -> n CE did not meet 27 ns
+                R     <= hi;
+                A     <= lo;
+                D     <= dvs_w;
+                n     <= is_8_bit ? 4'd7 : 4'd15;
+                s8    <= is_8_bit;
+                sgn   <= is_signed;
+                q_neg <= dvd_neg ^ dvs_neg;
+                r_neg <= dvd_neg;
+                state <= D_CHK;
             end
+        end
+        D_CHK: begin
+            if (D == 16'd0 || R >= D) begin
+                error    <= 1'b1;
+                complete <= 1'b1;
+                state    <= D_IDLE;
+            end else
+                state    <= D_WORK;
         end
         D_WORK: begin
             R <= qbit ? diff[15:0] : R2[15:0];

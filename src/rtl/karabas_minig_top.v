@@ -194,15 +194,13 @@ wire [4:0] osd_px, osd_ph;
 wire [3:0] osd_py;
 wire [5:0] osd_pw;
 
-reg [15:0] dbg_addr = 16'd0, dbg_data = 16'd0;   // the debug values (below)
-
 kg_mcu2 #(
 	.CAPS(16'h0000),
 	.SW_N(2),
 	.CS_FILTER(3),
 	.ENABLE_OSD(1),
 	.ENABLE_IMG(0),
-	.ENABLE_AUX(1),      // the debug values of the bring-up (DEBUG_ADDR / DATA, logged by the fw with debug=1)
+	.ENABLE_AUX(0),
 	.ENABLE_FT(1),
 	.ENABLE_SD2(1)
 ) mcu (
@@ -246,7 +244,7 @@ kg_mcu2 #(
 	.PORT_OUT_DATA(), .PORT_OUT_WR(), .PORT_OUT_READY(4'b1111), .PORT_IN_DATA(32'd0), .PORT_IN_WR(4'd0),
 	.PORT_CFG(128'd0), .PORT_IN_FULL(), .PORT_STAT(), .PORT_STAT_WR(),
 	.RTC_A(8'd0), .RTC_DI(8'd0), .RTC_CS(1'b0), .RTC_WR_N(1'b1), .RTC_DO(),
-	.MATRIX_CMD(24'd0), .MATRIX_CMD_WR(1'b0), .DEBUG_ADDR(dbg_addr), .DEBUG_DATA(dbg_data),
+	.MATRIX_CMD(24'd0), .MATRIX_CMD_WR(1'b0), .DEBUG_ADDR(16'd0), .DEBUG_DATA(16'd0),
 
 	.FT_SPI_ON(ft_spi_on), .FT_VGA_ON(), .FT_RESET(), .FT_SCK(), .FT_MOSI(ft_mosi), .FT_MISO(FT_SPI_MISO),
 	.FT_CS_N(ft_cs_n),
@@ -363,55 +361,6 @@ ws_core #(.KG_CPU_S80(1)) ws (
 	.isColor(is_color),
 	.keys(keys)
 );
-
-// ------------------------------------------------------------------ debug values (bring-up, Ф1)
-
-// one word every 2^25 clocks (0.9 s), addresses 0..7 in turn (the fw logs a change with debug=1):
-//   0 flags { 8'h5A, locked_sys, locked_vid, cart_ready, loading, ws_reset, is_color, hdr_color, fb_have }
-//   1 file bytes / 16   2 frames of SwanTop   3 cartridge reads / 256   4 mask_addr[15:0]
-//   5 the address of the first cartridge read after the reset, 6 its data, 7 the data of the second
-reg [24:0] dbg_t = 25'd0;
-reg [19:0] dbg_bytes = 20'd0;
-reg [15:0] dbg_frames = 16'd0;
-reg [23:0] dbg_reads = 24'd0;
-reg [15:0] dbg_a0 = 16'd0, dbg_d0 = 16'd0, dbg_d1 = 16'd0;
-reg [1:0]  dbg_n = 2'd0;
-reg [1:0]  dbg_pend = 2'd0;
-reg        dbg_rd_d = 1'b0, dbg_rst_d = 1'b1, dbg_have = 1'b0;
-always @(posedge clk_sys) begin
-	dbg_t <= dbg_t + 25'd1;
-	if (file_wr) dbg_bytes <= dbg_bytes + 20'd1;
-	if (file_active && !loading) dbg_bytes <= 20'd0;
-	if (pixel_we && pixel_addr == 15'd32255) begin dbg_frames <= dbg_frames + 16'd1; dbg_have <= 1'b1; end
-	dbg_rd_d <= ext_read;
-	dbg_rst_d <= ws_reset;
-	if (ws_reset && !dbg_rst_d) dbg_n <= 2'd0;
-	if (ext_read && !dbg_rd_d) begin
-		dbg_reads <= dbg_reads + 24'd1;
-		if (dbg_n == 2'd0) dbg_a0 <= ext_addr[15:0];
-		if (dbg_n != 2'd2) dbg_pend <= 2'd3;
-	end
-	if (dbg_pend != 2'd0) begin
-		dbg_pend <= dbg_pend - 2'd1;
-		if (dbg_pend == 2'd1) begin
-			if (dbg_n == 2'd0) dbg_d0 <= ext_rdata; else dbg_d1 <= ext_rdata;
-			dbg_n <= dbg_n + 2'd1;
-		end
-	end
-	if (dbg_t == 25'd0) begin
-		dbg_addr <= { 13'd0, dbg_addr[2:0] + 3'd1 };
-		case (dbg_addr[2:0] + 3'd1)
-		3'd0: dbg_data <= { 8'h5A, locked_sys, locked_vid, cart_ready, loading, ws_reset, is_color, hdr_color, dbg_have };
-		3'd1: dbg_data <= dbg_bytes[19:4];
-		3'd2: dbg_data <= dbg_frames;
-		3'd3: dbg_data <= dbg_reads[23:8];
-		3'd4: dbg_data <= mask_addr[15:0];
-		3'd5: dbg_data <= dbg_a0;
-		3'd6: dbg_data <= dbg_d0;
-		default: dbg_data <= dbg_d1;
-		endcase
-	end
-end
 
 // ------------------------------------------------------------------ SDRAM
 
@@ -532,8 +481,7 @@ end
 
 // ------------------------------------------------------------------ HDMI
 
-wire dvi_only_65, sys_bad;
-kg_sync #(.W(1), .STAGES(3), .INIT(1'b1)) sync_sysbad (.clk(clk_65), .d(~locked_sys), .q(sys_bad));
+wire dvi_only_65;
 kg_sync #(.W(1), .STAGES(3)) sync_dvi (.clk(clk_65), .d(dvi_only), .q(dvi_only_65));
 
 // HDMI_AUDIO 0 (Ф1 bring-up, temporary): DVI only, the audio of HDMI (signaler: island encoder,
@@ -549,7 +497,7 @@ hdmi_tx #(.SAMPLE_FREQ(48000), .INPUT_REG(1), .OUTPUT_REG(1)) hdmi (
 	// the reset straight from the video PLL (as core-sega: no synchroniser, the mod5 counters of the
 	// channels leave it at the same serial clock)
 	.reset(areset_vid),
-	.rgb(sys_bad ? 24'hFF0000 : osd_rgb),   // red: the machine clock is not locked (diagnostic)
+	.rgb(osd_rgb),
 	.vsync(~osd_vs),     // 1024 x 768 at 60 Hz: negative syncs (VESA)
 	.hsync(~osd_hs),
 	.de(osd_de),

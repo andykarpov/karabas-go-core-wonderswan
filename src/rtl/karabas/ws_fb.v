@@ -27,7 +27,7 @@
  buffer numbers cross both ways as two agreeing samples (they change once a frame).
 
  hs / vs / de are positive (the top inverts the syncs), rgb is 8:8:8 (4 bits doubled). The picture area is
- dark blue (000040) until the first complete frame.
+ black until the first complete frame.
 */
 
 module ws_fb (
@@ -300,8 +300,8 @@ always @(posedge clk_65) begin
 	de <= p2_de;
 	hs <= p2_hs;
 	vs <= p2_vs;
-	// the picture; dark blue there until the machine has finished a frame (diagnostic of the bring-up)
-	rgb <= !p2_pic ? 24'd0 : !p2_have ? 24'h000040 :
+	// the picture; black there until the machine has finished a frame
+	rgb <= !p2_pic || !p2_have ? 24'd0 :
 		{ lb_q[11:8], lb_q[11:8], lb_q[7:4], lb_q[7:4], lb_q[3:0], lb_q[3:0] };
 end
 
