@@ -1,6 +1,7 @@
 #!/bin/bash
 # Ф0: the source lists of the XST fit measurements (src/measure/) and the Verilog-2001
 # copy of the s80x86-based CPU (SystemVerilog, open-pocket-ws) made with sv2v (/opt/sv2v/sv2v).
+#   tools/sv2v.sh core      -> ws.prj (the core) and karabas_<board>.prj (+ the modules, the top)
 #   tools/sv2v.sh measure   -> measure/sv2v_s80/ (one file per module),
 #                              measure/ws_mister.prj (MiSTer rtl/ws as is, portable dpram),
 #                              measure/ws_hybrid.prj (MiSTer rtl/ws + the open-pocket-ws copies
@@ -31,5 +32,22 @@ measure)
 	  echo 'vhdl work "rtl/opws/swanTop.vhd"'
 	} > measure/ws_hybrid.prj
 	ls $OUT | wc -l ;;
-*) echo "usage: $0 measure"; exit 1 ;;
+core)
+	# the core for the boards: the hybrid SwanTop (MiSTer V30MZ, KG_CPU_S80 = 0; the s80x86 files are
+	# not needed: its instance is in a false generate) + rtl/karabas -> ws.prj; the board .prj files add
+	# the modules of karabas-go-modules (tools/board_modules.prj) and the top
+	PKG="registerpackage reg_swan bus_savestates reg_savestates export"
+	OV="dpram eeprom gpu memorymux rtc savestates serial sprites statemanager swanbios swanbioscolor swanTop"
+	{ for p in $PKG; do echo "vhdl work \"rtl/ws/$p.vhd\""; done
+	  for f in rtl/ws/*.vhd; do b=$(basename $f .vhd)
+		case " $PKG $OV " in *" $b "*) continue;; esac; echo "vhdl work \"$f\""; done
+	  for b in $OV; do echo "vhdl work \"rtl/opws/$b.vhd\""; done
+	  echo 'vhdl work "rtl/karabas/ws_core.vhd"'
+	  for f in ws_clocks ws_sdram ws_loader ws_fb ws_kbd; do echo "verilog work \"rtl/karabas/$f.v\""; done
+	} > ws.prj
+	for b in minig; do
+		{ cat tools/board_modules.prj; cat ws.prj; echo "verilog work \"rtl/karabas_${b}_top.v\""; } > karabas_$b.prj
+	done
+	wc -l < ws.prj ;;
+*) echo "usage: $0 measure|core"; exit 1 ;;
 esac

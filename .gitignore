@@ -83,3 +83,6 @@ src/measure/*.log
 !src/measure/*.prj
 !src/measure/*.xst
 src/xst_*/
+!src/ws.prj
+src/sim/build/
+!src/tools/*.prj
