@@ -14,5 +14,9 @@ grep -E 'PASS|FAIL|pixel|line|checked' build/tb_fb.log
 grep -q '^PASS' build/tb_fb.log || exit 1
 ./build.sh
 echo "JOB-STAGE: timingtest"
-build/obj/Vsim_top --rom ../../upstream/mister/testroms/timingtest/timingtest.ws --frames 8 \
-	--ppm build/tt --ppm-every 7 --expect-sum 7,08d7ac19
+# from src (the s80x86 reads its microcode ROM from rtl/s80x86/gen); S80=0: the V30MZ model
+S80=${S80:-1}
+if [ $S80 = 1 ]; then OBJ=obj; SUM=${SUM:-08d7ac19}; F=5; else F=7; OBJ=obj_v30; SUM=${SUM:-08d7ac19}; fi
+cd ..
+sim/build/$OBJ/Vsim_top --rom ../upstream/mister/testroms/timingtest/timingtest.ws --frames 8 \
+	--ppm sim/build/tt --ppm-every 7 --expect-sum $F,$SUM

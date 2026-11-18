@@ -75,7 +75,12 @@ initial begin
 		@(negedge clk_sys);
 		if (pend > 0) begin
 			pend = pend - 1;
+`ifndef S80
 			if (pend == 0) $display("  read %06x -> %04x", pend_a, ext_rdata);
+`else
+			if (pend == 0) pend = 1;   // the s80x86 waits for the SDRAM: the data at its ready
+			if (top.ext_ready) begin $display("  read %06x -> %04x", pend_a, ext_rdata); pend = 0; end
+`endif
 		end
 		if (ext_read && !prev_rd) begin
 			n_rd = n_rd + 1;
@@ -93,7 +98,8 @@ initial begin
 	$finish;
 end
 
-// the CPU bus of the netlist (sim/post/taps.py): the first accesses after the reset
+// the CPU bus of the netlist (sim/post/taps.py): the first accesses after the reset (V30MZ only)
+`ifndef S80
 `ifdef GHDL
 // the same through the ghdl Verilog (sim/build/ws_core_ghdl.v, the reference)
 `define CPU top.ws.iswantop.gcpu_v30_icpu
@@ -152,5 +158,7 @@ always @(negedge clk_sys) if (!top.ws_reset && st != st_d && n_st < 120) begin
 	$display("  cs:ip %04x:%04x stage %0d opstep %0d opcode %0d delay %0d pf %0d (cycle %0d)", tap_cs, tap_ip,
 		tap_stage, tap_opstep, tap_opcode, tap_delay, tap_pfcount, i);
 end
+
+`endif
 
 endmodule

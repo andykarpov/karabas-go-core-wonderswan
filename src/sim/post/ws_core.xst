@@ -6,6 +6,7 @@ run
 -ofmt NGC
 -p xc6slx25-2-ftg256
 -top ws_core
+-generics {KG_CPU_S80=1}
 -opt_mode Speed
 -opt_level 2
 -power NO

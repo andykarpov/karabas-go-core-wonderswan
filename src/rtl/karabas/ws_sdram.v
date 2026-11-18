@@ -56,10 +56,21 @@ module ws_sdram (
 	input  wire [1:0]  ch3_be,
 	input  wire        ch3_req,
 	input  wire        ch3_rnw,
-	output reg         ch3_ready = 1'b0
+	output wire        ch3_ready
 );
 
 localparam CAS_LATENCY = 3;
+
+// karabas: ch3_ready for the s80x86 CPU (cpu_s80 waits for EXTRAM_ready; the V30MZ does not use it).
+// The controller makes a one-clk pulse; its reader runs on clk_sys = clk / 3 (rising edges together)
+// and saw it once in three: the CPU hung on its first cartridge read. Held 3 clocks it is seen by
+// exactly one clk_sys edge (ch3_dout keeps its value until the next ch3 read).
+reg ch3_rdy_p = 1'b0;
+reg [1:0] ch3_rdy_n = 2'd0;
+always @(posedge clk)
+	if (ch3_rdy_p) ch3_rdy_n <= 2'd3;
+	else if (ch3_rdy_n != 2'd0) ch3_rdy_n <= ch3_rdy_n - 2'd1;
+assign ch3_ready = ch3_rdy_n != 2'd0;
 localparam BURST_LENGTH = 1;
 localparam [12:0] MODE = { 3'b000, 1'b1, 2'b00, 3'd3, 1'b0, 3'b000 }; // single write, CL3, sequential, BL1
 localparam [13:0] sdram_startup_cycles = 14'd12100;
@@ -106,10 +117,16 @@ always @(posedge clk) begin
 	ch1_req_1 <= ch1_req;
 	ch2_req_1 <= ch2_req;
 	ch3_req_1 <= ch3_req;
-	ch3_rnw_1 <= ch3_rnw;
-	ch3_addr_1 <= ch3_addr;
-	ch3_din_1 <= ch3_din;
-	ch3_be_1 <= ch3_be;
+	// karabas: the ch3 request is latched at its rising edge (the original copies it every clock and
+	// uses the copy of the clock before IDLE: right when IDLE takes it at once, as the fixed slots of
+	// the V30MZ do; the s80x86 starts its accesses on any clock, a request that came while the
+	// controller was busy was taken after the 1-clk_sys pulse had ended: rnw 0 = a WRITE of garbage)
+	if (ch3_req & ~ch3_req_1) begin
+		ch3_rnw_1 <= ch3_rnw;
+		ch3_addr_1 <= ch3_addr;
+		ch3_din_1 <= ch3_din;
+		ch3_be_1 <= ch3_be;
+	end
 	doRefresh_1 <= doRefresh;
 
 	if (ch1_req & ~ch1_req_1) ch1_rq <= 1'b1;
@@ -118,7 +135,7 @@ always @(posedge clk) begin
 
 	ch1_ready <= 1'b0;
 	ch2_ready <= 1'b0;
-	ch3_ready <= 1'b0;
+	ch3_rdy_p <= 1'b0;
 
 	refresh_count <= refresh_count + 1'b1;
 
@@ -130,7 +147,7 @@ always @(posedge clk) begin
 
 	if (data_ready_delay1[1]) begin ch1_dout <= dq_reg; ch1_ready <= 1'b1; end
 	if (data_ready_delay2[1]) begin ch2_dout <= dq_reg; ch2_ready <= 1'b1; end
-	if (data_ready_delay3[1]) begin ch3_dout <= dq_reg; ch3_ready <= 1'b1; end
+	if (data_ready_delay3[1]) begin ch3_dout <= dq_reg; ch3_rdy_p <= 1'b1; end
 
 	dq_oe <= 1'b0;
 	command <= CMD_NOP;
@@ -224,7 +241,7 @@ always @(posedge clk) begin
 			dq_oe <= 1'b1;
 			if (ch == 2'd0) ch1_ready <= 1'b1;
 			if (ch == 2'd1) ch2_ready <= 1'b1;
-			if (ch == 2'd2) ch3_ready <= 1'b1;
+			if (ch == 2'd2) ch3_rdy_p <= 1'b1;
 			state <= STATE_IDLE_2;
 		end
 		else begin

@@ -33,15 +33,22 @@ measure)
 	} > measure/ws_hybrid.prj
 	ls $OUT | wc -l ;;
 core)
-	# the core for the boards: the hybrid SwanTop (MiSTer V30MZ, KG_CPU_S80 = 0; the s80x86 files are
-	# not needed: its instance is in a false generate) + rtl/karabas -> ws.prj; the board .prj files add
-	# the modules of karabas-go-modules (tools/board_modules.prj) and the top
+	# the core for the boards: the hybrid SwanTop + rtl/karabas -> ws.prj; the board .prj files add
+	# the modules of karabas-go-modules (tools/board_modules.prj) and the top. Both CPUs are in it
+	# (the top picks one with KG_CPU_S80): the s80x86 as Verilog-2001 from sv2v in rtl/s80v (in git,
+	# the board builds do not need sv2v; the microcode ROM is read from rtl/s80x86/gen/microcode.bin,
+	# relative to src: XST and the simulations run from src)
+	OUT=rtl/s80v
+	rm -rf $OUT && mkdir $OUT
+	$SV2V -I rtl/s80x86/gen -DSYNTHESIS --top=cpu_s80 $(cat rtl/s80x86/files.f) rtl/cpu/cpu_s80.sv -w $OUT 2>&1 \
+		| grep -v -E '^\s*$|Warning: Number literal' || true
 	PKG="registerpackage reg_swan bus_savestates reg_savestates export"
 	OV="dpram eeprom gpu memorymux rtc savestates serial sprites statemanager swanbios swanbioscolor swanTop"
 	{ for p in $PKG; do echo "vhdl work \"rtl/ws/$p.vhd\""; done
 	  for f in rtl/ws/*.vhd; do b=$(basename $f .vhd)
 		case " $PKG $OV " in *" $b "*) continue;; esac; echo "vhdl work \"$f\""; done
 	  for b in $OV; do echo "vhdl work \"rtl/opws/$b.vhd\""; done
+	  for f in $OUT/*.v; do echo "verilog work \"$f\""; done
 	  echo 'vhdl work "rtl/karabas/ws_core.vhd"'
 	  for f in ws_clocks ws_sdram ws_loader ws_fb ws_kbd; do echo "verilog work \"rtl/karabas/$f.v\""; done
 	} > ws.prj

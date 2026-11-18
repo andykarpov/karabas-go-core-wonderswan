@@ -332,7 +332,7 @@ wire [14:0] pixel_addr;
 wire [11:0] pixel_data;
 wire [15:0] snd_l, snd_r;
 
-ws_core #(.KG_CPU_S80(0)) ws (
+ws_core #(.KG_CPU_S80(1)) ws (
 	.clk(clk_sys),
 	.clk_ram(clk_ram),
 	.reset_in(ws_reset),
