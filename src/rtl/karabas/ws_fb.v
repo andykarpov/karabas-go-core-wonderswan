@@ -31,8 +31,9 @@
  Read side (clk_65): the VESA timing 1344 x 806 (1024 + 24 + 136 + 160, 768 + 3 + 6 + 29); at the
  start of every frame the reader takes the last complete buffer and the mode. A source line is read
  from the SRAM into a line buffer (block RAM, two lines of 24-bit pixels, the frames already mixed)
- while the line before is shown: line 0 three output lines before the picture, line 1 at its start,
- line n + 2 after the last output line of n. The requests cross to clk with a toggle (the line,
+ while the line before is shown: line 0 eight output lines before the picture (three were not enough
+ for 3 frames mixed while the game writes: the end of line 0 was stale on Mini G), line 1 at its
+ start, line n + 2 after the last output line of n. The requests cross to clk with a toggle (the line,
  buffer and mode held stable meanwhile); the frame number crosses as two agreeing samples.
 
  hs / vs / de are positive (the top inverts the syncs), rgb is 8:8:8. The picture area is black until
@@ -329,7 +330,7 @@ always @(posedge clk_65) begin
 
 	// lines: at the end of the line before (hc = H_SYNC0, the picture of the line is out)
 	if (hc == H_SYNC0) begin
-		if (vc == Y0 - 10'd3) begin
+		if (vc == Y0 - 10'd8) begin   // line 0: 8 output lines (3 reads a pixel and the writes of the game)
 			req_line <= 8'd0;
 			req_lbuf <= 1'b0;
 			req_t <= ~req_t;
