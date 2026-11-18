@@ -86,3 +86,4 @@ src/xst_*/
 !src/ws.prj
 src/sim/build/
 !src/tools/*.prj
+src/tests/build/
