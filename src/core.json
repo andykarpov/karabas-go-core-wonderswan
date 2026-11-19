@@ -1,7 +1,7 @@
 {
     "id": "wonderswan",
     "name": "WonderSwan",
-    "build": "26111901",
+    "build": "26111902",
     "visible": true,
     "type": "fileloader",
     "dir": "wonderswan",
@@ -12,9 +12,9 @@
     "rtc_mode": 2,
     "roms": [],
     "boards": {
-        "go": {"link": 2, "build": "26111901", "bitstream": "karabas_go.bin"},
-        "mini": {"link": 2, "build": "26111901", "bitstream": "karabas_mini.bin"},
-        "minig": {"link": 2, "build": "26111901", "bitstream": "karabas_minig.bin"}
+        "go": {"link": 2, "build": "26111902", "bitstream": "karabas_go.bin"},
+        "mini": {"link": 2, "build": "26111902", "bitstream": "karabas_mini.bin"},
+        "minig": {"link": 2, "build": "26111902", "bitstream": "karabas_minig.bin"}
     },
     "osd": [
     {"type": "S", "name": "System", "options": ["Auto", "Color", "Mono"], "default": 0, "hotkey": "Menu+S"},
