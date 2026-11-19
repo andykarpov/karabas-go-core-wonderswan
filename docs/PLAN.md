@@ -62,6 +62,10 @@ EEPROM / SRAM картриджа в `.sav` через kg_bk_ram, внутрен�
 
 OSD: Color / Mono / Auto, поворот (авто по запросу игры / 90 / 270), flickerblend; сборки Go и Mini, релиз в karabas-go.
 
+- [x] OSD Orientation (Auto / Horz / Vert / Vert180, как в MiSTer: Auto = Vert180 у вертикальных игр) и Flickerblend (Off / 2 / 3 кадра): ws_fb — кольцо из 8 буферов кадра в SRAM, строки или столбцы источника (×4 или ×3, 432 × 672), 1–3 чтения на пиксель, смешивание в 24-битный строковый буфер; MD сначала в регистр (TS_SRAM_IN), строка 0 запрашивается за 8 строк. tb_fb -DROT / -DBLEND; Mini G 26111902 проверено (повороты, смешивание без артефактов).
+- [x] Go / Mini: верхние модули, prj, временна́я часть ucf — `src/tools/mktops.py` из Mini G (как в core-sega), пины ucf из core-sega. 26111902: Go 63 % LUT / 87 % слайсов, Mini 72 % / 87 %, Mini G 73 % / 92 %, все тайминги сошлись. Go и Mini на плате не запускались.
+- [x] README / README.ru; релиз — строка в cores.json karabas-go.
+
 ### Ф4 — по желанию
 
 Кабель связи (EXT-порт), savestates, ускорение (fast forward).
